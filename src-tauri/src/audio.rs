@@ -2,7 +2,7 @@
 
 use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
 use windows::Win32::Media::Audio::{
-    eCapture, eConsole, IMMDeviceEnumerator, MMDeviceEnumerator,
+    eCapture, eConsole, eRender, IMMDeviceEnumerator, MMDeviceEnumerator,
     PlaySoundW, SND_ALIAS, SND_ASYNC, EDataFlow, ERole,
 };
 use windows::core::PCWSTR;
@@ -15,6 +15,32 @@ fn mic_volume() -> windows::core::Result<IAudioEndpointVolume> {
             CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
         let device = enumerator.GetDefaultAudioEndpoint(eCapture, eConsole)?;
         device.Activate(CLSCTX_ALL, None)
+    }
+}
+
+fn render_volume() -> windows::core::Result<IAudioEndpointVolume> {
+    unsafe {
+        let enumerator: IMMDeviceEnumerator =
+            CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
+        let device = enumerator.GetDefaultAudioEndpoint(eRender, eConsole)?;
+        device.Activate(CLSCTX_ALL, None)
+    }
+}
+
+pub fn render_volume_get() -> u32 {
+    unsafe {
+        render_volume()
+            .and_then(|v| v.GetMasterVolumeLevelScalar())
+            .map(|v| (v * 100.0).round() as u32)
+            .unwrap_or(0)
+    }
+}
+
+pub fn render_volume_set(pct: u32) {
+    unsafe {
+        let _ = render_volume().and_then(|v| {
+            v.SetMasterVolumeLevelScalar(pct.clamp(0, 100) as f32 / 100.0, std::ptr::null())
+        });
     }
 }
 

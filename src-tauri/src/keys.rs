@@ -1,6 +1,7 @@
 //! Global media-key / volume-key feedback: a low-level keyboard hook that
 //! emits `osd:key` events so the island can show what each key did.
 
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::OnceLock;
 
 use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
@@ -27,8 +28,22 @@ const LABELS: &[(u32, &str)] = &[
 
 unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     // Fire on key-up so held volume keys don't spam the OSD.
+    static LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    if code >= 0 {
+        static CALLS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        if std::sync::atomic::AtomicU32::fetch_add(&CALLS, 1, std::sync::atomic::Ordering::Relaxed) < 5 {
+            let st = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
+            crate::events::debug_log(&format!(
+                "[keys] hook call code={code} wparam={:#x} vk=0x{:x}",
+                wparam.0, st.vkCode
+            ));
+        }
+    }
     if code >= 0 && wparam.0 == 0x101 {
         let st = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
+        if std::sync::atomic::AtomicU32::fetch_add(&LOGGED, 1, std::sync::atomic::Ordering::Relaxed) < 3 {
+            crate::events::debug_log(&format!("[keys] keyup vk=0x{:x}", st.vkCode));
+        }
         if let Some((_, label)) = LABELS.iter().find(|(vk, _)| *vk == st.vkCode) {
             if let Some(app) = APP.get() {
                 events::emit(app, ev::OSD_KEY, &serde_json::json!({ "label": label }));
@@ -41,12 +56,16 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
 pub fn start(app: tauri::AppHandle) {
     let _ = APP.set(app);
     std::thread::spawn(move || unsafe {
-        let hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(hook_proc), None, 0);
-        if let Err(err) = hook {
-            eprintln!("[keys] hook failed: {err}");
-            return;
-        }
-        let hook = hook.expect("hook");
+        let hook = match SetWindowsHookExW(WH_KEYBOARD_LL, Some(hook_proc), None, 0) {
+            Ok(h) => {
+                crate::events::debug_log("[keys] LL hook installed");
+                h
+            }
+            Err(err) => {
+                crate::events::debug_log(&format!("[keys] hook failed: {err}"));
+                return;
+            }
+        };
         let mut msg = windows::Win32::UI::WindowsAndMessaging::MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).as_bool() {
             let _ = TranslateMessage(&msg);

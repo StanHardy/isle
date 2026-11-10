@@ -454,6 +454,17 @@ pub fn copy_now_playing(app: AppHandle) -> Result<bool, String> {
     Ok(crate::clipboard::set_text(&text))
 }
 
+#[tauri::command]
+pub fn volume_get() -> u32 {
+    crate::audio::render_volume_get()
+}
+
+#[tauri::command]
+pub fn volume_set(pct: u32) -> u32 {
+    crate::audio::render_volume_set(pct);
+    crate::audio::render_volume_get()
+}
+
 // ---- microphone ----
 
 #[tauri::command]

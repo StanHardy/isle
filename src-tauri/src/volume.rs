@@ -65,7 +65,11 @@ pub fn start(app: tauri::AppHandle) {
             let cb: IAudioEndpointVolumeCallback =
                 VolumeCb { app: app.clone(), last: Mutex::new(now()) }.into();
             vol.RegisterControlChangeNotify(&cb)?;
-            // The registration holds a reference; keep ours alive regardless.
+            crate::events::debug_log("[volume] callback registered");
+            // Keep BOTH objects alive: dropping the endpoint volume object
+            // destroys the notification registration (notifications silently
+            // stop firing — the bug that killed the volume OSD initially).
+            std::mem::forget(vol);
             std::mem::forget(cb);
             Ok(())
         })();
