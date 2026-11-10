@@ -13,6 +13,7 @@ mod keys;
 mod keepawake;
 mod media;
 mod metrics;
+mod mixer;
 mod notify;
 mod providers;
 mod reminders;
@@ -161,6 +162,8 @@ pub fn run() {
             commands::copy_now_playing,
             commands::volume_get,
             commands::volume_set,
+            commands::mixer_list,
+            commands::mixer_set,
             commands::mic_state,
             commands::mic_set_mute_state,
             commands::keep_awake_set,

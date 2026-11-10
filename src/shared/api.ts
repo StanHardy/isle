@@ -9,6 +9,7 @@ import type {
   LyricsPayload,
   MediaInfo,
   MediaState,
+  MixerApp,
   NotifyItem,
   Reminder,
   SearchHit,
@@ -70,6 +71,10 @@ export const reminderAdd = (text: string, intervalMin: number) =>
   invoke<number>("reminder_add", { text, intervalMin });
 export const reminderDelete = (id: number) =>
   invoke("reminder_delete", { id });
+export const mixerList = () =>
+  invoke<MixerApp[]>("mixer_list");
+export const mixerSet = (pid: number, volume: number) =>
+  invoke("mixer_set", { pid, volume });
 export const frontendLog = (message: string) =>
   invoke("frontend_log", { message }).catch(() => {});
 export const updateCheck = () =>

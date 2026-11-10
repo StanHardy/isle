@@ -181,3 +181,9 @@ export interface Reminder {
   intervalMin: number;
   nextAtMs: number;
 }
+
+export interface MixerApp {
+  pid: number;
+  name: string;
+  volume: number;
+}

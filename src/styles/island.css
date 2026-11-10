@@ -1484,3 +1484,38 @@ button:focus-visible {
   font-size: 14px;
   font-weight: 600;
 }
+
+
+/* per-app mixer */
+.mixer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mixer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mixer-name {
+  width: 110px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+.mixer-row input[type="range"] {
+  flex: 1;
+}
+
+.mixer-pct {
+  width: 34px;
+  text-align: right;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}

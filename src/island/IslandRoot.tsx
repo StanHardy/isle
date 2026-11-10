@@ -28,6 +28,7 @@ import {
   InfoModule,
   LyricsModule,
   MicModule,
+  MixerModule,
   NoteModule,
   RemindersModule,
 } from "./modules/ExtrasModules";
@@ -514,6 +515,8 @@ export default function IslandRoot() {
         return <NoteModule key={id} />;
       case "mic":
         return <MicModule key={id} />;
+      case "mixer":
+        return <MixerModule key={id} />;
       case "bluetooth":
         return settings?.bluetoothEnabled ? <BluetoothModule key={id} /> : null;
       case "notifications":

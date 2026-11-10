@@ -465,6 +465,18 @@ pub fn volume_set(pct: u32) -> u32 {
     crate::audio::render_volume_get()
 }
 
+// ---- per-app mixer ----
+
+#[tauri::command]
+pub fn mixer_list() -> Result<Vec<crate::mixer::MixerApp>, String> {
+    crate::mixer::list_batch()
+}
+
+#[tauri::command]
+pub fn mixer_set(pid: u32, volume: u32) -> Result<(), String> {
+    crate::mixer::set(pid, volume)
+}
+
 // ---- microphone ----
 
 #[tauri::command]

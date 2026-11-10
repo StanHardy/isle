@@ -421,3 +421,62 @@ export function MicModule() {
     </div>
   );
 }
+
+
+import type { MixerApp } from "../../shared/types";
+
+/** Per-app volume mixer: live sessions on the default render endpoint. */
+export function MixerModule() {
+  const [apps, setApps] = useState<MixerApp[]>([]);
+  const edited = useRef<Map<number, number>>(new Map());
+
+  useEffect(() => {
+    const poll = () => {
+      api
+        .mixerList()
+        .then((list) => {
+          // respect local edits made in the last 3 s
+          const now = Date.now();
+          setApps(
+            list.map((a) => {
+              const local = edited.current.get(a.pid);
+              return local !== undefined && now - local < 3000
+                ? { ...a, volume: local }
+                : a;
+            }),
+          );
+        })
+        .catch(() => {});
+    };
+    poll();
+    const iv = setInterval(poll, 2000);
+    return () => clearInterval(iv);
+  }, []);
+
+  return (
+    <div className="card">
+      <h3>App mixer</h3>
+      {apps.length === 0 && <p className="muted">No apps playing audio.</p>}
+      <div className="mixer-list">
+        {apps.map((a) => (
+          <div key={a.pid} className="mixer-row">
+            <span className="mixer-name" title={a.name}>{a.name}</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              defaultValue={a.volume}
+              aria-label={`${a.name} volume`}
+              onInput={(e) => {
+                const v = Number((e.target as HTMLInputElement).value);
+                edited.current.set(a.pid, v);
+                api.mixerSet(a.pid, v).catch(() => {});
+              }}
+            />
+            <span className="mixer-pct">{a.volume}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
