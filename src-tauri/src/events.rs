@@ -6,6 +6,7 @@ pub mod ev {
     pub const MEDIA: &str = "media:update";
     pub const MEDIA_INFO: &str = "media:info";
     pub const SPECTRUM: &str = "audio:spectrum";
+    pub const SETTINGS: &str = "settings:changed";
     pub const METRICS: &str = "metrics:sample";
     pub const TIMER_TICK: &str = "timer:tick";
     pub const TIMER_DONE: &str = "timer:done";

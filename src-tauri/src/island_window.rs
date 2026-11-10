@@ -107,6 +107,16 @@ pub fn create_settings(app: &AppHandle) -> Result<(), tauri::Error> {
     .inner_size(880.0, 640.0)
     .min_inner_size(720.0, 520.0)
     .build()?;
+    // Closing the window must HIDE it, not destroy it — the tray and the
+    // island's gear button reopen the same window; a destroyed one would
+    // make "open settings" silently do nothing.
+    let win_for_close = win.clone();
+    win.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            let _ = win_for_close.hide();
+        }
+    });
     let _ = win.hide();
     Ok(())
 }
@@ -131,13 +141,16 @@ pub fn apply_round_region(win: &tauri::WebviewWindow, radius: f64) {
 /// Place the island at top-center of the primary work area in compact size.
 /// Design-aware: the notch hangs FROM the screen edge (window top pushed
 /// above the screen so the uniform rounded region shows only bottom corners).
+/// NOTE: all settings access happens in ONE scoped read — user_scale()
+/// must not be called while the read guard is held (std RwLock is not
+/// reentrant; a queued writer would deadlock the watcher thread).
 pub fn position_compact(app: &AppHandle) {
     if let Some(win) = island(app) {
         let a = anchor(app);
         let (w, h, off, rad) = {
             let state: tauri::State<AppState> = app.state();
             let s = state.settings.read().expect("settings lock");
-            let scale = user_scale(app);
+            let scale = (s.island_scale as f64).max(0.5);
             match s.island_design {
                 crate::config::IslandDesign::Notch => (360.0 * scale, 80.0 * scale, -24.0, 24.0),
                 _ => (COMPACT_W * scale, COMPACT_H * scale, TOP_OFFSET, COMPACT_RADIUS),
@@ -149,12 +162,6 @@ pub fn position_compact(app: &AppHandle) {
         let _ = win.set_position(LogicalPosition::new(x, y));
         apply_round_region(&win, rad);
     }
-}
-
-fn user_scale(app: &AppHandle) -> f64 {
-    let state: tauri::State<AppState> = app.state();
-    let settings = state.settings.read().expect("settings lock");
-    (settings.island_scale as f64).max(0.5)
 }
 
 /// Toggle mouse-activation. The island runs with WS_EX_NOACTIVATE so clicking

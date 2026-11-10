@@ -124,6 +124,7 @@ pub fn run() {
             commands::hide_island,
             commands::show_island,
             commands::quit_app,
+            commands::frontend_log,
             commands::island_anchor,
             commands::settings_get,
             commands::settings_update,

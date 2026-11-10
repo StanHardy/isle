@@ -202,6 +202,7 @@ export default function IslandRoot() {
         if (e.payload.active) setMode("compact");
       }),
       api.listen<Anchor>(api.ev.DISPLAY, (e) => setAnchor(e.payload)),
+      api.listen<Settings>(api.ev.SETTINGS, (e) => setSettings(e.payload)),
       api.listen<Attention>(api.ev.ATTENTION, (e) => setAttention(e.payload)),
     ];
     return () => {

@@ -66,6 +66,13 @@ pub fn quit_app(app: AppHandle) {
     app.exit(0);
 }
 
+/// Frontend error reporting → debug.log (windowed app has no console).
+#[tauri::command]
+pub fn frontend_log(app: AppHandle, message: String) {
+    crate::events::debug_log(&format!("[fe] {}", message.chars().take(2000).collect::<String>()));
+    let _ = app;
+}
+
 #[tauri::command]
 pub fn island_anchor(app: AppHandle) -> island_window::Anchor {
     island_window::anchor(&app)
@@ -100,6 +107,9 @@ pub fn settings_update(app: AppHandle, patch: serde_json::Value) -> Settings {
     settings.clipboard_keep = settings.clipboard_keep.clamp(10, 500);
     *state.settings.write().expect("settings lock") = settings.clone();
     settings.save();
+    // Broadcast to every window: the island only fetched settings once at
+    // startup, so changes made in the settings window must be pushed to it.
+    let _ = app.emit(ev::SETTINGS, &settings);
     let _ = app.emit(ev::DISPLAY, island_window::anchor(&app));
     settings
 }
