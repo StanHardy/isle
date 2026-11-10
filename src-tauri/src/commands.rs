@@ -454,6 +454,32 @@ pub fn copy_now_playing(app: AppHandle) -> Result<bool, String> {
     Ok(crate::clipboard::set_text(&text))
 }
 
+// ---- keep-awake ----
+
+#[tauri::command]
+pub fn keep_awake_set(app: AppHandle, minutes: u64) -> u64 {
+    crate::keepawake::set(&app, minutes.clamp(1, 720))
+}
+
+#[tauri::command]
+pub fn keep_awake_off(app: AppHandle) {
+    crate::keepawake::off(&app);
+}
+
+// ---- scratchpad ----
+
+#[tauri::command]
+pub fn note_get() -> String {
+    let path = crate::config::data_dir().join("scratchpad.txt");
+    std::fs::read_to_string(path).unwrap_or_default()
+}
+
+#[tauri::command]
+pub fn note_save(text: String) {
+    let path = crate::config::data_dir().join("scratchpad.txt");
+    let _ = std::fs::write(path, text);
+}
+
 // ---- clipboard ----
 
 #[tauri::command]

@@ -226,3 +226,44 @@ export function InfoModule() {
     </div>
   );
 }
+
+
+/** Persistent one-note scratchpad (saved to disk on idle). */
+export function NoteModule() {
+  const [text, setText] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const timer = useRef<number | null>(null);
+
+  useEffect(() => {
+    api.noteGet().then(setText).catch(() => setText(""));
+  }, []);
+
+  const onChange = (v: string) => {
+    setText(v);
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(async () => {
+      await api.noteSave(v);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 1200);
+    }, 500);
+  };
+
+  return (
+    <div className="card">
+      <h3>
+        Note
+        {saved && <span className="muted">saved</span>}
+      </h3>
+      {text === null ? (
+        <p className="muted">Loading…</p>
+      ) : (
+        <textarea
+          className="note-area"
+          value={text}
+          placeholder="Jot something down — saved automatically."
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
+  );
+}

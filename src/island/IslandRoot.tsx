@@ -23,7 +23,7 @@ import TimersModule from "./modules/TimersModule";
 import WeatherModule from "./modules/WeatherModule";
 import MetricsModule from "./modules/MetricsModule";
 import { BluetoothModule, ClipboardModule, NotificationsModule } from "./modules/PrivacyModules";
-import { InfoModule, LyricsModule } from "./modules/ExtrasModules";
+import { InfoModule, LyricsModule, NoteModule } from "./modules/ExtrasModules";
 
 const COMPACT = { w: 348, h: 56 };
 const EXPANDED = { w: 424, h: 580 };
@@ -462,6 +462,8 @@ export default function IslandRoot() {
         return <InfoModule key={id} />;
       case "lyrics":
         return settings?.lyricsEnabled ? <LyricsModule key={id} /> : null;
+      case "note":
+        return <NoteModule key={id} />;
       case "bluetooth":
         return settings?.bluetoothEnabled ? <BluetoothModule key={id} /> : null;
       case "notifications":

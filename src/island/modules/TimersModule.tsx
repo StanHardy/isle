@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as api from "../../shared/api";
+import type { AwakeState } from "../../shared/api";
 import { useIsland } from "../IslandRoot";
 
 const PRESETS = [
@@ -40,6 +41,33 @@ function TimerRow({ id, label, totalMs, remainingMs, paused }: {
         )}
         <button type="button" className="mini-btn" aria-label="Cancel timer" onClick={() => api.timerCancel(id)}>✕</button>
       </div>
+    </div>
+  );
+}
+
+function AwakeRow() {
+  const [state, setState] = useState<AwakeState | null>(null);
+  useEffect(() => {
+    const un = api.listen<AwakeState>(api.ev.KEEPAWAKE, (e) => setState(e.payload));
+    return () => {
+      un.then((f) => f()).catch(() => {});
+    };
+  }, []);
+  const remaining = state?.active
+    ? Math.max(1, Math.ceil(state.remainingMs / 60000))
+    : 0;
+  return (
+    <div className="awake-row">
+      <span className="mini-btn awake-chip" role="group" aria-label="Keep awake">
+        <button type="button" className={state?.active ? "chip awake-on" : "chip"} onClick={() => api.keepAwakeSet(30)}>30m</button>
+        <button type="button" className="chip" onClick={() => api.keepAwakeSet(60)}>1h</button>
+        <button type="button" className="chip" onClick={() => api.keepAwakeSet(120)}>2h</button>
+        {state?.active && (
+          <button type="button" className="chip" onClick={() => api.keepAwakeOff()}>
+            off · {remaining}m
+          </button>
+        )}
+      </span>
     </div>
   );
 }

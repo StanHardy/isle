@@ -1176,3 +1176,26 @@ button:focus-visible {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+
+/* keep-awake + note */
+.awake-row {
+  margin-top: 10px;
+}
+
+.awake-chip {
+  display: inline-flex;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.note-area {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+}

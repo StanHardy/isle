@@ -22,6 +22,7 @@ export const ev = {
   MEDIA: "media:update",
   MEDIA_INFO: "media:info",
   SPECTRUM: "audio:spectrum",
+  KEEPAWAKE: "keepawake:state",
   SETTINGS: "settings:changed",
   METRICS: "metrics:sample",
   TIMER_TICK: "timer:tick",
@@ -43,6 +44,16 @@ export const islandCollapse = () => invoke("island_collapse");
 export const openSettings = () => invoke("open_settings");
 export const quitApp = () => invoke("quit_app");
 export const islandAnchor = () => invoke<Anchor>("island_anchor");
+export interface AwakeState {
+  active: boolean;
+  untilMs: number;
+  remainingMs: number;
+}
+export const keepAwakeSet = (minutes: number) =>
+  invoke<number>("keep_awake_set", { minutes });
+export const keepAwakeOff = () => invoke("keep_awake_off");
+export const noteGet = () => invoke<string>("note_get");
+export const noteSave = (text: string) => invoke("note_save", { text });
 export const frontendLog = (message: string) =>
   invoke("frontend_log", { message }).catch(() => {});
 export const updateCheck = () =>

@@ -8,6 +8,7 @@ mod credentials;
 mod events;
 mod fullscreen;
 mod island_window;
+mod keepawake;
 mod media;
 mod metrics;
 mod notify;
@@ -154,6 +155,10 @@ pub fn run() {
             commands::show_island,
             commands::quit_app,
             commands::copy_now_playing,
+            commands::keep_awake_set,
+            commands::keep_awake_off,
+            commands::note_get,
+            commands::note_save,
             commands::frontend_log,
             commands::update_check,
             commands::update_install,
@@ -212,6 +217,7 @@ pub fn run() {
             bluetooth::start(handle.clone());
             fullscreen::start(handle.clone());
             spectrum::start(handle.clone());
+            keepawake::start(handle.clone());
             providers::open_meteo::start_service(handle.clone());
             bridge::start(handle);
             Ok(())
