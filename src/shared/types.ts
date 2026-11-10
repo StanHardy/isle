@@ -116,7 +116,7 @@ export interface CityRef {
 export type TempUnit = "metric" | "imperial";
 export type WindUnit = "kmh" | "mph";
 export type SpectrumStyle = "accent" | "white" | "gradient" | "tint" | "mono";
-export type IslandDesign = "pill" | "notch" | "black" | "clear";
+export type IslandDesign = "pill" | "notch" | "black" | "clear" | "strip";
 export type ExpandMode = "hover" | "click";
 export type Theme = "system" | "dark" | "light";
 

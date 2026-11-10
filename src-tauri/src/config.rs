@@ -57,8 +57,9 @@ pub enum SpectrumStyle {
 }
 
 /// Overall island look: floating glass capsule (pill), screen-edge notch
-/// (opaque, hangs from the top, Notchy-style), or Droppy-style material
-/// variants of the capsule (opaque black / clear glass).
+/// (opaque, hangs from the top, Notchy-style), Droppy-style material
+/// variants of the capsule (opaque black / clear glass), or a full-width
+/// top strip (Peeka-style) that covers the entire screen edge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum IslandDesign {
@@ -66,6 +67,7 @@ pub enum IslandDesign {
     Notch,
     Black,
     Clear,
+    Strip,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

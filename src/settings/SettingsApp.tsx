@@ -109,6 +109,7 @@ export default function SettingsApp() {
                   <option value="notch">Notch</option>
                   <option value="black">Black</option>
                   <option value="clear">Clear</option>
+                  <option value="strip">Strip (full width)</option>
                 </select>
               </label>
               <label className="setting-row">

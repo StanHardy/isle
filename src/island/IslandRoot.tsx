@@ -27,7 +27,9 @@ import { InfoModule, LyricsModule } from "./modules/ExtrasModules";
 
 const COMPACT = { w: 348, h: 56 };
 const EXPANDED = { w: 424, h: 580 };
-const TOP_OFFSET = 10;
+// Flush against the top edge — any gap lets maximized apps' title bars
+// peek through above the island.
+const TOP_OFFSET = 0;
 const RADIUS = { compact: 28, expanded: 24 };
 
 /**
@@ -43,6 +45,8 @@ const DESIGN_METRICS: Record<
   notch: { w: 360, h: 80, yOff: -24, radius: 24 },
   black: { w: 348, h: 56, yOff: TOP_OFFSET, radius: 28 },
   clear: { w: 348, h: 56, yOff: TOP_OFFSET, radius: 28 },
+  // Full-width strip: w comes from the work area; radius 0 = rectangular.
+  strip: { w: 0, h: 48, yOff: 0, radius: 0 },
 };
 
 type Mode = "compact" | "expanded";
@@ -288,16 +292,29 @@ export default function IslandRoot() {
     api.islandCollapse().catch(() => {});
   }, []);
 
-  // Window frame follows the springs; centered on the primary work area.
+  // Window frame follows the springs. Strip design: full work-area width,
+  // flush at the top; expanded adds the panel below the strip.
   useEffect(() => {
-    const design = DESIGN_METRICS[settings?.islandDesign ?? "pill"] ?? DESIGN_METRICS.pill;
+    const designId = settings?.islandDesign ?? "pill";
+    const design = DESIGN_METRICS[designId] ?? DESIGN_METRICS.pill;
     const compact = mode === "compact";
-    const targetW = (compact ? design.w : EXPANDED.w) * (settings?.islandScale ?? 1);
-    const targetH = (compact ? design.h : EXPANDED.h) * (settings?.islandScale ?? 1);
+    const isStrip = designId === "strip";
+    const scaleF = settings?.islandScale ?? 1;
+    const workW = anchor ? anchor.width / (anchor.scale || 1) : EXPANDED.w;
+
+    let targetW: number;
+    let targetH: number;
+    if (isStrip) {
+      targetW = workW;
+      targetH = compact ? design.h : design.h + EXPANDED.h;
+    } else {
+      targetW = (compact ? design.w : EXPANDED.w) * scaleF;
+      targetH = (compact ? design.h : EXPANDED.h) * scaleF;
+    }
     wSpring.current.set(targetW);
     hSpring.current.set(targetH);
-    const radius = compact ? design.radius : RADIUS.expanded;
-    const yOff = compact ? design.yOff : TOP_OFFSET;
+    const radius = isStrip ? 0 : compact ? design.radius : RADIUS.expanded;
+    const yOff = compact ? design.yOff : 0;
 
     const writeFrame = () => {
       const a = anchor;
@@ -305,7 +322,9 @@ export default function IslandRoot() {
       const scale = a.scale || 1;
       const w = wSpring.current.value;
       const h = hSpring.current.value;
-      const x = a.x / scale + (a.width / scale - w) / 2;
+      const x = isStrip
+        ? a.x / scale
+        : a.x / scale + (a.width / scale - w) / 2;
       const y = a.y / scale + yOff;
       api.islandSetFrame(x, y, w, h, radius).catch(() => {});
     };
@@ -345,6 +364,8 @@ export default function IslandRoot() {
   }, [attention, activeTimer, btFlash, media, notifBadge]);
 
   const onPillEnter = () => {
+    // A full-width strip is far too big a hover target for dwell-expand.
+    if (settings?.islandDesign === "strip") return;
     if (mode !== "compact" || settings?.expandMode !== "hover") return;
     hoverTimer.current = window.setTimeout(expand, 160);
   };
@@ -442,6 +463,108 @@ export default function IslandRoot() {
     }
   };
 
+  /** The active-module content shared by the pill and the strip center. */
+  const renderPillContent = (forStrip: boolean) => {
+    if (forStrip && pillKind === "clock") return null;
+    return (
+      <>
+        {pillKind === "attention" && (
+          <span className={`pill-attention att-${attention?.kind}`}>
+            {attention?.kind === "timer-done" && <span>⏰ {attention.label ?? "Timer done"}</span>}
+            {attention?.kind === "bt-connected" && <span>🔗 {attention.name}</span>}
+            {attention?.kind === "bt-disconnected" && <span>◌ {attention.name}</span>}
+            {attention?.kind === "phone-notify" && <span>📱 {attention.title ?? "Phone"}</span>}
+            {attention?.kind === "welcome" && <span>{attention.text}</span>}
+          </span>
+        )}
+        {pillKind === "timer" && (
+          <span className="pill-timer">
+            <span className="pill-dot timer-dot" />
+            {fmtCountdown(activeTimer?.remainingMs ?? 0)} {activeTimer?.label}
+          </span>
+        )}
+        {pillKind === "bt" && (
+          <span className="pill-timer">
+            <span className={`pill-dot ${btFlash?.connected ? "bt-in" : "bt-out"}`} />
+            {btFlash?.name} {btFlash?.connected ? "connected" : "disconnected"}
+          </span>
+        )}
+        {(pillKind === "media" || pillKind === "media-dim") && (
+          <span className="pill-media">
+            {art ? (
+              <img className="pill-art" src={art} alt="" />
+            ) : (
+              <span className="pill-art pill-art-empty">♪</span>
+            )}
+            <span className="pill-track">
+              <span className="pill-title">{media?.title || "Unknown"}</span>
+              <span className="pill-artist">{media?.artist}</span>
+            </span>
+          </span>
+        )}
+        {pillKind === "notify" && (
+          <span className="pill-timer">
+            <span className="pill-dot notify-dot" />
+            {notifBadge} new notification{notifBadge === 1 ? "" : "s"}
+          </span>
+        )}
+        {pillKind === "clock" && !forStrip && <Clock />}
+      </>
+    );
+  };
+
+  const isStrip = settings?.islandDesign === "strip";
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const dateStr = now.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
+  const stripVariant = settings?.spectrumStyle ?? "accent";
+
+  const stripRow = (expanded: boolean) => (
+    <div className={`strip ${expanded ? "strip-expanded" : ""}`}>
+      <div className="strip-left">
+        <span className="strip-brand">Isle</span>
+        {!expanded && <span className="strip-date">{dateStr}</span>}
+      </div>
+      <div className="strip-center">
+        {expanded ? (
+          media?.title ? (
+            <span className="strip-now">{media.title} {media.artist ? `· ${media.artist}` : ""}</span>
+          ) : (
+            <span className="strip-now muted">panel</span>
+          )
+        ) : (
+          renderPillContent(true)
+        )}
+      </div>
+      <div className="strip-right">
+        {pillKind !== "clock" && !expanded && (
+          <SpectrumBars bands={10} height={14} variant={stripVariant} tint={tintLive} />
+        )}
+        <span className="strip-time">{timeStr}</span>
+        {expanded && (
+          <>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Open settings"
+              onClick={() => api.openSettings()}
+            >
+              ⚙
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Collapse strip"
+              onClick={collapse}
+            >
+              ⌄
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <IslandContext.Provider value={ctx}>
       <div
@@ -452,7 +575,17 @@ export default function IslandRoot() {
         data-expanded={mode === "expanded"}
         data-design={settings?.islandDesign ?? "pill"}
       >
-        {mode === "compact" ? (
+        {mode === "compact" && isStrip ? (
+          <button
+            type="button"
+            className="pill strip"
+            aria-expanded={false}
+            aria-label="Isle strip — click the center to open the panel"
+            onClick={expand}
+          >
+            {stripRow(false)}
+          </button>
+        ) : mode === "compact" ? (
           <button
             type="button"
             className="pill"
@@ -460,55 +593,13 @@ export default function IslandRoot() {
             aria-label={`Isle: ${pillKind === "media" ? `${media?.title} — ${media?.artist}` : pillKind === "timer" ? `Timer ${fmtCountdown(activeTimer?.remainingMs ?? 0)}` : "open panel"}`}
             onClick={() => settings?.expandMode === "click" && expand()}
           >
-            <div className="pill-left" aria-hidden="true">
-              {pillKind === "attention" && (
-                <span className={`pill-attention att-${attention?.kind}`}>
-                  {attention?.kind === "timer-done" && <span>⏰ {attention.label ?? "Timer done"}</span>}
-                  {attention?.kind === "bt-connected" && <span>🔗 {attention.name}</span>}
-                  {attention?.kind === "bt-disconnected" && <span>◌ {attention.name}</span>}
-                  {attention?.kind === "phone-notify" && <span>📱 {attention.title ?? "Phone"}</span>}
-                  {attention?.kind === "welcome" && <span>{attention.text}</span>}
-                </span>
-              )}
-              {pillKind === "timer" && (
-                <span className="pill-timer">
-                  <span className="pill-dot timer-dot" />
-                  {fmtCountdown(activeTimer?.remainingMs ?? 0)} {activeTimer?.label}
-                </span>
-              )}
-              {pillKind === "bt" && (
-                <span className="pill-timer">
-                  <span className={`pill-dot ${btFlash?.connected ? "bt-in" : "bt-out"}`} />
-                  {btFlash?.name} {btFlash?.connected ? "connected" : "disconnected"}
-                </span>
-              )}
-              {(pillKind === "media" || pillKind === "media-dim") && (
-                <span className="pill-media">
-                  {art ? (
-                    <img className="pill-art" src={art} alt="" />
-                  ) : (
-                    <span className="pill-art pill-art-empty">♪</span>
-                  )}
-                  <span className="pill-track">
-                    <span className="pill-title">{media?.title || "Unknown"}</span>
-                    <span className="pill-artist">{media?.artist}</span>
-                  </span>
-                </span>
-              )}
-              {pillKind === "notify" && (
-                <span className="pill-timer">
-                  <span className="pill-dot notify-dot" />
-                  {notifBadge} new notification{notifBadge === 1 ? "" : "s"}
-                </span>
-              )}
-              {pillKind === "clock" && <Clock />}
-            </div>
+            <div className="pill-left" aria-hidden="true">{renderPillContent(false)}</div>
             <div className="pill-right" aria-hidden="true">
               {pillKind !== "clock" && (
                 <SpectrumBars
                   bands={10}
                   height={14}
-                  variant={settings?.spectrumStyle ?? "accent"}
+                  variant={stripVariant}
                   tint={tintLive}
                 />
               )}
@@ -519,6 +610,26 @@ export default function IslandRoot() {
               )}
             </div>
           </button>
+        ) : isStrip ? (
+          <div className="strip-host">
+            {stripRow(true)}
+            <div className="panel panel-attached" role="dialog" aria-label="Isle panel" tabIndex={-1}>
+              <div className="panel-body" onMouseEnter={onPanelEnter}>
+                {settings
+                  ? settings.moduleOrder
+                      .filter((id) => settings.modulesEnabled[id])
+                      .map((id) => (
+                        <div
+                          key={id}
+                          className={`bento-item ${WIDE_MODULES.has(id) ? "wide" : "narrow"}`}
+                        >
+                          {renderModule(id)}
+                        </div>
+                      ))
+                  : null}
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="panel" role="dialog" aria-label="Isle panel" tabIndex={-1}>
             <header className="panel-head">

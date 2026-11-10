@@ -101,6 +101,111 @@ body,
 
 /* ---------- island design variants ---------- */
 
+/* Peeka-style full-width strip */
+.island-root[data-design="strip"] .pill {
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--stroke);
+  padding: 0 20px;
+}
+
+.strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+  padding: 0 20px;
+  background: var(--bg-gradient);
+  backdrop-filter: blur(30px) saturate(1.4);
+  border-bottom: 1px solid var(--stroke);
+  color: var(--text);
+}
+
+.strip-host {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.strip-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.strip-brand {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.strip-date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.strip-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+button.pill .strip-center {
+  cursor: pointer;
+}
+
+.strip-now {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 720px;
+}
+
+.strip-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.strip-right .spectrum {
+  width: 44px;
+}
+
+.strip-time {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-attached {
+  flex: 1;
+  min-height: 0;
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid var(--stroke);
+}
+
+.island-root[data-design="strip"] .panel-body {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 12px 16px 16px;
+}
+
+.island-root[data-design="strip"] .bento-item.wide {
+  grid-column: span 2;
+}
+
 /* Droppy-style opaque black */
 .island-root[data-design="black"] .pill,
 .island-root[data-design="black"] .panel {

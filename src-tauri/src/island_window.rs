@@ -22,8 +22,9 @@ pub const COMPACT_H: f64 = 56.0;
 /// Corner radius in logical units (compact pill / expanded panel).
 pub const COMPACT_RADIUS: f64 = 28.0;
 pub const EXPANDED_RADIUS: f64 = 24.0;
-/// Gap between the top of the work area and the island, logical units.
-pub const TOP_OFFSET: f64 = 10.0;
+/// The island sits flush against the top of the work area — any gap lets
+/// maximized apps' title bars peek through above it.
+pub const TOP_OFFSET: f64 = 0.0;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -124,8 +125,15 @@ pub fn create_settings(app: &AppHandle) -> Result<(), tauri::Error> {
 /// Clip the window to a rounded rect so the island can never show square
 /// corners, regardless of webview rendering state. The system owns the
 /// region after SetWindowRgn; re-apply whenever the size changes.
+/// radius < 3 clears the region (rectangular strip design).
 pub fn apply_round_region(win: &tauri::WebviewWindow, radius: f64) {
     let Ok(hwnd) = win.hwnd() else { return };
+    if radius < 3.0 {
+        unsafe {
+            SetWindowRgn(hwnd, None, true);
+        }
+        return;
+    }
     let Ok(scale) = win.scale_factor() else { return };
     let Ok(size) = win.outer_size() else { return };
     let r = ((radius * scale).round() as i32).max(2);
@@ -138,26 +146,35 @@ pub fn apply_round_region(win: &tauri::WebviewWindow, radius: f64) {
     }
 }
 
-/// Place the island at top-center of the primary work area in compact size.
-/// Design-aware: the notch hangs FROM the screen edge (window top pushed
-/// above the screen so the uniform rounded region shows only bottom corners).
-/// NOTE: all settings access happens in ONE scoped read — user_scale()
-/// must not be called while the read guard is held (std RwLock is not
-/// reentrant; a queued writer would deadlock the watcher thread).
+/// Place the island in compact state. Design-aware:
+/// - strip: full work-area width, 48 px tall, flush at the top
+/// - notch: hangs FROM the screen edge (window top pushed above the screen
+///   so the uniform rounded region shows only bottom corners)
+/// NOTE: all settings access happens in ONE scoped read — std RwLock is not
+/// reentrant; a queued writer while holding the guard would deadlock.
 pub fn position_compact(app: &AppHandle) {
     if let Some(win) = island(app) {
         let a = anchor(app);
-        let (w, h, off, rad) = {
+        let (w, h, off, rad, centered) = {
             let state: tauri::State<AppState> = app.state();
             let s = state.settings.read().expect("settings lock");
             let scale = (s.island_scale as f64).max(0.5);
             match s.island_design {
-                crate::config::IslandDesign::Notch => (360.0 * scale, 80.0 * scale, -24.0, 24.0),
-                _ => (COMPACT_W * scale, COMPACT_H * scale, TOP_OFFSET, COMPACT_RADIUS),
+                crate::config::IslandDesign::Strip => {
+                    (a.width as f64 / scale, 48.0 * scale, 0.0, 0.0, false)
+                }
+                crate::config::IslandDesign::Notch => {
+                    (360.0 * scale, 80.0 * scale, -24.0, 24.0, true)
+                }
+                _ => (COMPACT_W * scale, COMPACT_H * scale, TOP_OFFSET, COMPACT_RADIUS, true),
             }
         };
-        let x = a.x as f64 + ((a.width as f64 - w) / 2.0);
-        let y = a.y as f64 + off;
+        let x = if centered {
+            a.x as f64 / a.scale + ((a.width as f64 / a.scale - w) / 2.0)
+        } else {
+            a.x as f64 / a.scale
+        };
+        let y = a.y as f64 / a.scale + off;
         let _ = win.set_size(LogicalSize::new(w, h));
         let _ = win.set_position(LogicalPosition::new(x, y));
         apply_round_region(&win, rad);
