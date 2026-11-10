@@ -267,3 +267,42 @@ export function NoteModule() {
     </div>
   );
 }
+
+
+/** Focus minutes per day (every completed timer credits its minutes). */
+export function FocusModule() {
+  const [days, setDays] = useState<[string, number][]>([]);
+
+  const load = () => {
+    api.focusStats().then((d) => setDays(d ?? [])).catch(() => {});
+  };
+
+  useEffect(() => {
+    load();
+    const un = api.listen<unknown>(api.ev.TIMER_DONE, () => load());
+    return () => {
+      un.then((f) => f()).catch(() => {});
+    };
+  }, []);
+
+  const max = Math.max(1, ...days.map(([, m]) => m));
+  const today = days.length ? days[days.length - 1] : ["", 0];
+
+  return (
+    <div className="card">
+      <h3>Focus</h3>
+      <div className="focus-total">
+        <span className="focus-minutes">{today[1]}</span>
+        <span className="focus-unit"> min focused today</span>
+      </div>
+      <div className="focus-bars">
+        {days.map(([day, m]) => (
+          <div key={day} className="focus-col" title={`${day}: ${m} min`}>
+            <div className="focus-bar" style={{ height: `${Math.round((m / max) * 36) + 2}px` }} />
+            <span className="focus-day">{day.slice(8)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

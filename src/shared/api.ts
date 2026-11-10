@@ -54,6 +54,8 @@ export const keepAwakeSet = (minutes: number) =>
 export const keepAwakeOff = () => invoke("keep_awake_off");
 export const noteGet = () => invoke<string>("note_get");
 export const noteSave = (text: string) => invoke("note_save", { text });
+export const focusStats = () =>
+  invoke<[string, number][]>("focus_stats");
 export const frontendLog = (message: string) =>
   invoke("frontend_log", { message }).catch(() => {});
 export const updateCheck = () =>

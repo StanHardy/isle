@@ -131,7 +131,7 @@ impl Default for Settings {
             theme: Theme::System,
             hide_fullscreen: true,
             module_order: [
-                "media", "info", "timer", "note", "weather", "metrics", "lyrics", "bluetooth",
+                "media", "info", "timer", "focus", "note", "weather", "metrics", "lyrics", "bluetooth",
                 "notifications", "clipboard",
             ]
             .iter()
@@ -141,6 +141,7 @@ impl Default for Settings {
                 ("media", true),
                 ("note", true),
                 ("timer", true),
+                ("focus", true),
                 ("weather", true),
                 ("metrics", true),
                 ("info", true),
@@ -249,7 +250,7 @@ pub const DEFAULT_SETTINGS_JSON: &str = r#"{
   "expandMode": "hover",
   "theme": "system",
   "hideFullscreen": true,
-  "moduleOrder": ["media", "info", "timer", "note", "weather", "metrics", "lyrics", "bluetooth", "notifications", "clipboard"],
+  "moduleOrder": ["media", "info", "timer", "focus", "note", "weather", "metrics", "lyrics", "bluetooth", "notifications", "clipboard"],
   "modulesEnabled": {
     "media": true,
     "timer": true,

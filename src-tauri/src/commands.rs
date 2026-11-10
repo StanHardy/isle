@@ -480,6 +480,11 @@ pub fn note_save(text: String) {
     let _ = std::fs::write(path, text);
 }
 
+#[tauri::command]
+pub fn focus_stats() -> Vec<(String, u32)> {
+    crate::focus::last_days(7)
+}
+
 // ---- clipboard ----
 
 #[tauri::command]

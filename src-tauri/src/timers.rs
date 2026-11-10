@@ -39,16 +39,16 @@ pub fn start(app: AppHandle) {
                 if !t.paused {
                     let left = t.ends_at_ms.saturating_sub(now);
                     if left == 0 {
-                        done.push((t.id, t.label.clone()));
+                        done.push((t.id, t.label.clone(), t.total_ms));
                     }
                     t.remaining_ms = left;
                 }
             }
-            for (id, _label) in &done {
+            for (id, _label, _total) in &done {
                 timers.remove(id);
             }
             drop(timers);
-            for (id, label) in done {
+            for (id, label, total) in done {
                 events::emit(&app, ev::TIMER_DONE, &serde_json::json!({ "id": id, "label": label }));
                 events::emit(
                     &app,
@@ -58,6 +58,7 @@ pub fn start(app: AppHandle) {
                 if timer_sound(&app) {
                     crate::audio::play_system_sound("Notification.Default");
                 }
+                crate::focus::record(((total / 60_000).max(1)) as u32);
             }
             if now - last_tick_ms >= 500 {
                 last_tick_ms = now;

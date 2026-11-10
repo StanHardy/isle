@@ -68,6 +68,13 @@ export interface GeoResult {
   lon: number;
 }
 
+export interface HourSlot {
+  time: string;
+  temp: number;
+  precip: number;
+  code: number;
+}
+
 export interface WeatherData {
   city: string;
   temp: number;
@@ -79,6 +86,7 @@ export interface WeatherData {
   precipProb: number;
   isDay: boolean;
   fetchedMs: number;
+  hourly: HourSlot[];
 }
 
 export interface LyricLine {

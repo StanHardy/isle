@@ -32,7 +32,18 @@ pub struct GeoResult {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct HourSlot {
+    pub time: String,
+    pub temp: f32,
+    pub precip: u32,
+    pub code: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WeatherData {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub hourly: Vec<HourSlot>,
     pub city: String,
     pub temp: f32,
     pub code: u32,
@@ -61,9 +72,23 @@ struct GeoRaw {
 }
 
 #[derive(Deserialize)]
+struct HourlyBlock {
+    #[serde(default)]
+    time: Vec<String>,
+    #[serde(default, rename = "temperature_2m")]
+    temps: Vec<f32>,
+    #[serde(default, rename = "precipitation_probability")]
+    precip: Vec<u32>,
+    #[serde(default, rename = "weather_code")]
+    codes: Vec<u32>,
+}
+
+#[derive(Deserialize)]
 struct ForecastResponse {
     current: CurrentBlock,
     daily: DailyBlock,
+    #[serde(default)]
+    hourly: Option<HourlyBlock>,
 }
 
 #[derive(Deserialize)]
@@ -155,9 +180,27 @@ pub async fn fetch(
         .await
         .map_err(|e| e.to_string())?;
 
+    let hourly = resp
+        .hourly
+        .map(|h| {
+            h.time
+                .iter()
+                .enumerate()
+                .take(6)
+                .map(|(i, t)| HourSlot {
+                    time: t.split('T').nth(1).unwrap_or(t).to_string(),
+                    temp: h.temps.get(i).copied().unwrap_or(0.0),
+                    precip: h.precip.get(i).copied().unwrap_or(0),
+                    code: h.codes.get(i).copied().unwrap_or(0),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
     Ok(WeatherData {
         city: city.name.clone(),
         temp: resp.current.temperature_2m,
+        hourly,
         code: resp.current.weather_code,
         wind: resp.current.wind_speed_10m,
         humidity: resp.current.relative_humidity_2m,

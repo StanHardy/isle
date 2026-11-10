@@ -6,6 +6,7 @@ mod commands;
 mod config;
 mod credentials;
 mod events;
+mod focus;
 mod fullscreen;
 mod island_window;
 mod keepawake;

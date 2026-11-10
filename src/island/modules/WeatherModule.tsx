@@ -85,6 +85,7 @@ export default function WeatherModule() {
       {city && !weather && !error && <p className="muted">Loading…</p>}
       {error && <p className="error-text">Weather unavailable: {error}</p>}
       {weather && (
+        <>
         <div className="weather-now">
           <span className="weather-icon" aria-hidden="true">{weatherIcon(weather)}</span>
           <div className="weather-main">
@@ -95,6 +96,18 @@ export default function WeatherModule() {
             </span>
           </div>
         </div>
+        {weather.hourly && weather.hourly.length > 0 && (
+          <div className="hourly-row" aria-label="Next hours forecast">
+            {weather.hourly.map((h) => (
+              <div key={h.time} className="hour-slot" title={`${describe(h.code)} · ${h.precip}% rain`}>
+                <span className="hour-time">{h.time.slice(0, 5)}</span>
+                <span className="hour-temp">{Math.round(h.temp)}°</span>
+                <span className="hour-precip">{h.precip}%</span>
+              </div>
+            ))}
+          </div>
+        )}
+        </>
       )}
       <form
         className="weather-search"

@@ -23,7 +23,7 @@ import TimersModule from "./modules/TimersModule";
 import WeatherModule from "./modules/WeatherModule";
 import MetricsModule from "./modules/MetricsModule";
 import { BluetoothModule, ClipboardModule, NotificationsModule } from "./modules/PrivacyModules";
-import { InfoModule, LyricsModule, NoteModule } from "./modules/ExtrasModules";
+import { FocusModule, InfoModule, LyricsModule, NoteModule } from "./modules/ExtrasModules";
 
 const COMPACT = { w: 348, h: 56 };
 const EXPANDED = { w: 424, h: 580 };
@@ -454,6 +454,8 @@ export default function IslandRoot() {
         return settings?.mediaEnabled ? <MediaModule key={id} art={art} tint={tint} /> : null;
       case "timer":
         return <TimersModule key={id} />;
+      case "focus":
+        return <FocusModule key={id} />;
       case "weather":
         return settings?.weatherEnabled ? <WeatherModule key={id} /> : null;
       case "metrics":
