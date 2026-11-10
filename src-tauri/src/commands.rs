@@ -89,14 +89,19 @@ pub fn settings_get(app: AppHandle) -> Settings {
 }
 
 #[tauri::command]
-pub fn settings_update(app: AppHandle, patch: serde_json::Value) -> Settings {
+pub fn settings_update(app: AppHandle, patch: serde_json::Value) -> Result<Settings, String> {
     let state: tauri::State<AppState> = app.state();
     let mut next = {
         let current = state.settings.read().expect("settings lock");
         serde_json::to_value(&*current).expect("settings serialize")
     };
     merge_into(&mut next, patch);
-    let mut settings: Settings = serde_json::from_value(next).unwrap_or_default();
+    // A malformed patch must be REJECTED, not silently reset to defaults —
+    // unwrap_or_default here used to wipe the user's whole configuration.
+    let mut settings: Settings = serde_json::from_value(next).map_err(|err| {
+        crate::events::debug_log(&format!("[settings] rejected invalid patch: {err}"));
+        format!("invalid settings patch: {err}")
+    })?;
     // Protected/derived fields.
     let (tmdb_cfg, bridge_token) = {
         let current = state.settings.read().expect("settings lock");
@@ -112,7 +117,7 @@ pub fn settings_update(app: AppHandle, patch: serde_json::Value) -> Settings {
     // startup, so changes made in the settings window must be pushed to it.
     let _ = app.emit(ev::SETTINGS, &settings);
     let _ = app.emit(ev::DISPLAY, island_window::anchor(&app));
-    settings
+    Ok(settings)
 }
 
 fn merge_into(base: &mut serde_json::Value, patch: serde_json::Value) {
@@ -241,11 +246,14 @@ pub async fn weather_geocode(query: String) -> Result<Vec<open_meteo::GeoResult>
 
 #[tauri::command]
 pub async fn weather_refresh(app: AppHandle) -> Result<serde_json::Value, String> {
-    let (city, temp_unit, wind_unit) = {
+    let (enabled, city, temp_unit, wind_unit) = {
         let state: tauri::State<AppState> = app.state();
         let s = state.settings.read().expect("settings lock");
-        (s.weather_city.clone(), s.temp_unit, s.wind_unit)
+        (s.weather_enabled, s.weather_city.clone(), s.temp_unit, s.wind_unit)
     };
+    if !enabled {
+        return Ok(serde_json::json!({ "error": "weather disabled in settings" }));
+    }
     let Some(city) = city else {
         return Ok(serde_json::json!({ "error": "no city selected" }));
     };
@@ -355,6 +363,18 @@ pub fn media_info_cached(app: AppHandle) -> Option<tmdb::MediaInfo> {
     crate::state::media_info_get(&cache, &m.art_key)
 }
 
+/// Shared HTTP client for ad-hoc fetches — reqwest::get has NO default
+/// timeout and could hang the async command indefinitely.
+fn http_client() -> &'static reqwest::Client {
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .expect("http client builds")
+    })
+}
+
 /// Fetch a remote image into a data URL so the frontend can canvas-sample
 /// it without CORS taint (used for album/poster tint). Capped at 3 MB.
 #[tauri::command]
@@ -362,7 +382,9 @@ pub async fn fetch_data_url(url: String) -> Result<String, String> {
     if !url.starts_with("https://") && !url.starts_with("http://") {
         return Err("only http(s) urls allowed".into());
     }
-    let resp = reqwest::get(&url)
+    let resp = http_client()
+        .get(&url)
+        .send()
         .await
         .and_then(|r| r.error_for_status())
         .map_err(|e| e.to_string())?;

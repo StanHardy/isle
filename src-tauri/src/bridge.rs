@@ -67,6 +67,20 @@ fn resp(status: u16, body: &str) -> Response<std::io::Cursor<Vec<u8>>> {
     Response::from_string(body).with_status_code(status)
 }
 
+/// Constant-time token comparison (no early exit on content mismatch).
+fn token_ok(presented: &str, token: &str) -> bool {
+    let a = presented.as_bytes();
+    let b = token.as_bytes();
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for i in 0..b.len() {
+        diff |= a[i] ^ b[i];
+    }
+    diff == 0
+}
+
 fn handle_notify(app: &AppHandle, body: &str) -> Response<std::io::Cursor<Vec<u8>>> {
     let value: serde_json::Value = match serde_json::from_str(body) {
         Ok(v) => v,
@@ -81,12 +95,7 @@ fn handle_notify(app: &AppHandle, body: &str) -> Response<std::io::Cursor<Vec<u8
         return resp(403, r#"{"error":"bridge disabled"}"#);
     }
     let presented = value.get("token").and_then(|t| t.as_str()).unwrap_or("");
-    if presented.len() != token.len()
-        || presented
-            .bytes()
-            .zip(token.bytes())
-            .any(|(a, b)| a != b)
-    {
+    if !token_ok(presented, &token) {
         return resp(401, r#"{"error":"bad token"}"#);
     }
     let item = NotifyItem {
@@ -131,9 +140,7 @@ fn handle_action(app: &AppHandle, body: &str) -> Response<std::io::Cursor<Vec<u8
         return resp(403, r#"{"error":"bridge disabled"}"#);
     }
     let presented = value.get("token").and_then(|t| t.as_str()).unwrap_or("");
-    if presented.len() != token.len()
-        || presented.bytes().zip(token.bytes()).any(|(a, b)| a != b)
-    {
+    if !token_ok(presented, &token) {
         return resp(401, r#"{"error":"bad token"}"#);
     }
     let action = value.get("action").and_then(|a| a.as_str()).unwrap_or("");

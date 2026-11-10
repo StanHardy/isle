@@ -188,6 +188,16 @@ function fmtCountdown(ms: number) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
+/** Ticking clock text — inline new Date() only refreshes on re-renders. */
+function MiniTime() {
+  const [t, setT] = useState(() => new Date());
+  useEffect(() => {
+    const iv = setInterval(() => setT(new Date()), 10_000);
+    return () => clearInterval(iv);
+  }, []);
+  return <>{t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</>;
+}
+
 export default function IslandRoot() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [mode, setMode] = useState<Mode>("compact");
@@ -515,7 +525,6 @@ export default function IslandRoot() {
 
   const isStrip = settings?.islandDesign === "strip";
   const now = new Date();
-  const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const dateStr = now.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
   const stripVariant = settings?.spectrumStyle ?? "accent";
 
@@ -540,7 +549,9 @@ export default function IslandRoot() {
         {pillKind !== "clock" && !expanded && (
           <SpectrumBars bands={10} height={14} variant={stripVariant} tint={tintLive} />
         )}
-        <span className="strip-time">{timeStr}</span>
+        <span className="strip-time">
+          <MiniTime />
+        </span>
         {expanded && (
           <>
             <button
@@ -605,7 +616,7 @@ export default function IslandRoot() {
               )}
               {pillKind !== "clock" && (
                 <span className="pill-mini-time">
-                  {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  <MiniTime />
                 </span>
               )}
             </div>

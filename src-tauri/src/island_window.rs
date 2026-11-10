@@ -21,7 +21,6 @@ pub const COMPACT_W: f64 = 348.0;
 pub const COMPACT_H: f64 = 56.0;
 /// Corner radius in logical units (compact pill / expanded panel).
 pub const COMPACT_RADIUS: f64 = 28.0;
-pub const EXPANDED_RADIUS: f64 = 24.0;
 /// The island sits flush against the top of the work area — any gap lets
 /// maximized apps' title bars peek through above it.
 pub const TOP_OFFSET: f64 = 0.0;
@@ -37,7 +36,7 @@ pub struct Anchor {
     pub scale: f64,
 }
 
-pub fn island<'a>(app: &'a AppHandle) -> Option<tauri::WebviewWindow> {
+pub fn island(app: &AppHandle) -> Option<tauri::WebviewWindow> {
     app.get_webview_window(ISLAND_LABEL)
 }
 

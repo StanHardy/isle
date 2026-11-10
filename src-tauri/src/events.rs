@@ -14,7 +14,6 @@ pub mod ev {
     pub const NOTIFY_NEW: &str = "notify:new";
     pub const BT_DEVICE: &str = "bt:device";
     pub const WEATHER: &str = "weather:update";
-    pub const LYRICS: &str = "lyrics:loaded";
     pub const FULLSCREEN: &str = "fullscreen:changed";
     pub const DISPLAY: &str = "display:changed";
     pub const ATTENTION: &str = "island:attention";

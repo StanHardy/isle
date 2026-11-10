@@ -104,12 +104,13 @@ fn run(app: &tauri::AppHandle) -> windows::core::Result<()> {
                         let f32s = std::slice::from_raw_parts(data as *const f32, count);
                         push_mono(&mut acc, f32s, channels);
                     } else {
+                        // 16-bit fallback: average all channels per frame like
+                        // the float path (channel-0-only would skew stereo).
                         let i16s = std::slice::from_raw_parts(data as *const i16, count);
-                        acc.extend(
-                            i16s.iter()
-                                .step_by(channels)
-                                .map(|s| *s as f32 / 32768.0),
-                        );
+                        for frame in i16s.chunks(channels) {
+                            let sum: i32 = frame.iter().map(|s| *s as i32).sum();
+                            acc.push(sum as f32 / channels as f32 / 32768.0);
+                        }
                     }
                 }
                 capture.ReleaseBuffer(read)?;

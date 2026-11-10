@@ -156,7 +156,7 @@ fn parse_stamp(tag: &str) -> Option<u32> {
     let mut parts = tag.split(':');
     let mins: u32 = parts.next()?.trim().parse().ok()?;
     let secs_part = parts.next()?;
-    if secs_part.len() < 1 || secs_part.len() > 5 || parts.next().is_some() {
+    if secs_part.is_empty() || secs_part.len() > 5 || parts.next().is_some() {
         return None;
     }
     let mut secs_iter = secs_part.split('.');

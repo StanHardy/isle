@@ -113,14 +113,20 @@ pub fn full_text(app: &AppHandle, id: u64) -> Option<String> {
     store.entries.iter().find(|e| e.id == id).map(|e| e.text.clone())
 }
 
-/// Read CF_UNICODETEXT with a short retry (clipboard is often momentarily busy).
+/// Read CF_UNICODETEXT with a short retry (the clipboard is often
+/// momentarily busy; each attempt opens once and closes once).
 pub fn read_text() -> Option<String> {
     unsafe {
+        let mut opened = false;
         for _ in 0..4 {
-            // Return value projection differs across windows-rs versions
-            // (BOOL vs Result); success is judged by GetClipboardData below.
-            let _ = OpenClipboard(None);
-            std::thread::sleep(std::time::Duration::from_millis(15));
+            if OpenClipboard(None).is_ok() {
+                opened = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(30));
+        }
+        if !opened {
+            return None;
         }
         let result = (|| -> Option<String> {
             let _ = IsClipboardFormatAvailable(CF_UNICODETEXT);
@@ -138,7 +144,7 @@ pub fn read_text() -> Option<String> {
             let slice = std::slice::from_raw_parts(ptr.cast::<u16>(), len);
             let text = String::from_utf16_lossy(slice);
             let _ = GlobalUnlock(hglobal);
-            return Some(text);
+            Some(text)
         })();
         let _ = CloseClipboard();
         result
@@ -150,7 +156,17 @@ pub fn set_text(text: &str) -> bool {
     let wide: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
     let byte_len = wide.len() * 2;
     unsafe {
-        let opened = OpenClipboard(None);
+        let mut opened = false;
+        for _ in 0..3 {
+            if OpenClipboard(None).is_ok() {
+                opened = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(25));
+        }
+        if !opened {
+            return false;
+        }
         let ok = (|| -> bool {
             let _ = EmptyClipboard();
             let hglobal = match GlobalAlloc(GMEM_MOVEABLE, byte_len) {
@@ -166,8 +182,6 @@ pub fn set_text(text: &str) -> bool {
             SetClipboardData(CF_UNICODETEXT, Some(HANDLE(hglobal.0))).is_ok()
         })();
         let _ = CloseClipboard();
-        // If OpenClipboard returned BOOL and failed, `ok` is false either way.
-        let _ = opened;
         ok
     }
 }

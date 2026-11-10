@@ -233,7 +233,7 @@ pub fn generate_token() -> String {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    h.write_u128(nanos as u128);
+    h.write_u128(nanos);
     h.write_u128(std::process::id() as u128);
     format!("{:016x}", h.finish())
 }
