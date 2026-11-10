@@ -90,7 +90,13 @@ pub fn clean_show(raw: &str) -> String {
     for word in normalized.split_whitespace() {
         let lower = word.to_lowercase();
         let lower = lower.trim_matches(['(', ')', '[', ']', '-']);
-        if lower.is_empty() || junk.contains(&lower) {
+        // Drop quality tags AND pure-symbol tokens (prettified titles inject
+        // · / — separators that poison provider searches, e.g. TVmaze
+        // fuzzy-matching "Suits ·" to a completely different show).
+        if lower.is_empty()
+            || junk.contains(&lower)
+            || !word.chars().any(|c| c.is_alphanumeric())
+        {
             continue;
         }
         kept.push(word);
@@ -179,8 +185,10 @@ fn parse_numeric_entity(rest: &str) -> Option<u32> {
 
 /// Resolve info for the playing media: TV via TVmaze (keyless), movies via
 /// TMDB when the user configured a key, else keyless iTunes fallback.
+/// Uses the RAW SMTC title — the prettified display title contains separator
+/// glyphs (· —) that poison provider searches.
 pub async fn lookup_auto(media: &MediaState, tmdb_key: Option<&str>) -> Option<MediaInfo> {
-    let query = format!("{} {}", media.title, media.artist);
+    let query = format!("{} {}", media.raw_title, media.artist);
     if let Some((show, season, ep)) = parse_episode_title(&query) {
         return lookup_tv(&show, season, ep).await.ok().flatten();
     }
@@ -482,12 +490,21 @@ mod tests {
         );
         assert_eq!(parse_episode_title("Season 3 episode 14"), None);
         assert_eq!(parse_episode_title("ASAP S1E1"), Some(("ASAP".into(), 1, 1)));
+        // Regression: prettified display titles must still resolve to the
+        // right show (the "·" poisoned a TVmaze search once).
+        assert_eq!(
+            parse_episode_title("Suits · S05E02 — Compensation"),
+            Some(("Suits".into(), 5, 2))
+        );
     }
 
     #[test]
     fn strips_quality_tags() {
         assert_eq!(clean_show("Show.Name.1080p.WEB-DL.x264"), "Show Name");
         assert_eq!(clean_show("Normal Title"), "Normal Title");
+        // Symbol-only separator tokens from prettified titles must vanish.
+        assert_eq!(clean_show("Suits · "), "Suits");
+        assert_eq!(clean_show("Suits — Compensation"), "Suits Compensation");
     }
 
     #[test]

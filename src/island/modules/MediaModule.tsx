@@ -43,6 +43,7 @@ export default function MediaModule({ art }: { art: string | null }) {
   }
 
   const playing = media.status === "playing";
+  const shown = media.durationMs > 0 ? Math.min(pos, media.durationMs) : pos;
   const pct = media.durationMs > 0 ? Math.min(100, (pos / media.durationMs) * 100) : 0;
   const fmt = (ms: number) => {
     const s = Math.floor(ms / 1000);
@@ -66,7 +67,7 @@ export default function MediaModule({ art }: { art: string | null }) {
         </div>
       </div>
       <div className="media-progress" role="timer" aria-label="Playback progress">
-        <span className="progress-time">{fmt(pos)}</span>
+        <span className="progress-time">{fmt(shown)}</span>
         <div className="progress-bar">
           <div className="progress-fill" style={{ width: `${pct}%` }} />
         </div>

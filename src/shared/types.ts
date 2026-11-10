@@ -4,6 +4,8 @@ export interface MediaState {
   id: string;
   app: string;
   title: string;
+  /** Untouched SMTC title (filenames for local players) — not for display. */
+  rawTitle: string;
   artist: string;
   album: string;
   status: string;

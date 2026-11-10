@@ -30,7 +30,10 @@ static LAST_ART_KEY: Mutex<String> = Mutex::new(String::new());
 pub struct MediaState {
     pub id: String,
     pub app: String,
+    /// Display title (prettified for episode-style filenames).
     pub title: String,
+    /// Untouched SMTC title — used for provider lookups, never displayed.
+    pub raw_title: String,
     pub artist: String,
     pub album: String,
     pub status: String,
@@ -382,6 +385,7 @@ fn build_state(
         id: app_id.clone(),
         app: pretty_app(&app_id),
         title,
+        raw_title,
         artist,
         album,
         status: status_str(status).to_string(),
