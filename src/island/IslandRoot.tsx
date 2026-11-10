@@ -217,6 +217,31 @@ export default function IslandRoot() {
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [info, setInfo] = useState<{ key: string; poster: string } | null>(null);
   const [micMuted, setMicMuted] = useState(false);
+  const [osd, setOsd] = useState<{
+    kind: "volume" | "key";
+    volume?: number;
+    muted?: boolean;
+    label?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const u1 = api.listen<{ volume: number; muted: boolean }>(api.ev.VOLUME_OSD, (e) =>
+      setOsd({ kind: "volume", volume: e.payload.volume, muted: e.payload.muted }),
+    );
+    const u2 = api.listen<{ label: string }>(api.ev.OSD_KEY, (e) =>
+      setOsd({ kind: "key", label: e.payload.label }),
+    );
+    return () => {
+      u1.then((f) => f()).catch(() => {});
+      u2.then((f) => f()).catch(() => {});
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!osd) return;
+    const t = setTimeout(() => setOsd(null), 1300);
+    return () => clearTimeout(t);
+  }, [osd]);
 
   useEffect(() => {
     const poll = () =>
@@ -500,8 +525,33 @@ export default function IslandRoot() {
     }
   };
 
+  /** OSD overlay: volume bar / media-key feedback (replaces pill content). */
+  const renderOsd = () => {
+    if (!osd) return null;
+    if (osd.kind === "volume") {
+      return (
+        <div className="osd" aria-label={`Volume ${osd.muted ? "muted" : osd.volume}`}>
+          <span className="osd-icon">{osd.muted ? "🔇" : "🔊"}</span>
+          <div className="osd-track">
+            <div
+              className="osd-fill"
+              style={{ width: `${osd.muted ? 0 : osd.volume ?? 0}%` }}
+            />
+          </div>
+          <span className="osd-pct">{osd.muted ? "muted" : `${osd.volume}%`}</span>
+        </div>
+      );
+    }
+    return (
+      <div className="osd" aria-label={osd.label}>
+        <span className="osd-label">{osd.label}</span>
+      </div>
+    );
+  };
+
   /** The active-module content shared by the pill and the strip center. */
   const renderPillContent = (forStrip: boolean) => {
+    if (osd) return renderOsd();
     if (forStrip && pillKind === "clock") return null;
     return (
       <>

@@ -9,6 +9,8 @@ pub mod ev {
     pub const SETTINGS: &str = "settings:changed";
     pub const REMINDERS_SYNC: &str = "reminders:sync";
     pub const REMINDER_FIRED: &str = "reminder:fired";
+    pub const VOLUME_OSD: &str = "volume:osd";
+    pub const OSD_KEY: &str = "osd:key";
     pub const METRICS: &str = "metrics:sample";
     pub const TIMER_TICK: &str = "timer:tick";
     pub const TIMER_DONE: &str = "timer:done";

@@ -27,6 +27,8 @@ export const ev = {
   SETTINGS: "settings:changed",
   REMINDERS_SYNC: "reminders:sync",
   REMINDER_FIRED: "reminder:fired",
+  VOLUME_OSD: "volume:osd",
+  OSD_KEY: "osd:key",
   METRICS: "metrics:sample",
   TIMER_TICK: "timer:tick",
   TIMER_DONE: "timer:done",

@@ -9,6 +9,7 @@ mod events;
 mod focus;
 mod fullscreen;
 mod island_window;
+mod keys;
 mod keepawake;
 mod media;
 mod metrics;
@@ -18,6 +19,7 @@ mod reminders;
 mod spectrum;
 mod state;
 mod timers;
+mod volume;
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -223,6 +225,8 @@ pub fn run() {
             reminders::init(&handle);
             reminders::start(handle.clone());
             spectrum::start(handle.clone());
+            keys::start(handle.clone());
+            volume::start(handle.clone());
             keepawake::start(handle.clone());
             providers::open_meteo::start_service(handle.clone());
             bridge::start(handle);
