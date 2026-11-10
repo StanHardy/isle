@@ -10,6 +10,7 @@ import type {
   MediaInfo,
   MediaState,
   NotifyItem,
+  Reminder,
   SearchHit,
   Settings,
   Theme,
@@ -24,6 +25,8 @@ export const ev = {
   SPECTRUM: "audio:spectrum",
   KEEPAWAKE: "keepawake:state",
   SETTINGS: "settings:changed",
+  REMINDERS_SYNC: "reminders:sync",
+  REMINDER_FIRED: "reminder:fired",
   METRICS: "metrics:sample",
   TIMER_TICK: "timer:tick",
   TIMER_DONE: "timer:done",
@@ -56,6 +59,12 @@ export const noteGet = () => invoke<string>("note_get");
 export const noteSave = (text: string) => invoke("note_save", { text });
 export const focusStats = () =>
   invoke<[string, number][]>("focus_stats");
+export const remindersList = () =>
+  invoke<Reminder[]>("reminders_list");
+export const reminderAdd = (text: string, intervalMin: number) =>
+  invoke<number>("reminder_add", { text, intervalMin });
+export const reminderDelete = (id: number) =>
+  invoke("reminder_delete", { id });
 export const frontendLog = (message: string) =>
   invoke("frontend_log", { message }).catch(() => {});
 export const updateCheck = () =>

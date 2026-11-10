@@ -14,6 +14,7 @@ mod media;
 mod metrics;
 mod notify;
 mod providers;
+mod reminders;
 mod spectrum;
 mod state;
 mod timers;
@@ -217,6 +218,8 @@ pub fn run() {
             notify::start(handle.clone());
             bluetooth::start(handle.clone());
             fullscreen::start(handle.clone());
+            reminders::init(&handle);
+            reminders::start(handle.clone());
             spectrum::start(handle.clone());
             keepawake::start(handle.clone());
             providers::open_meteo::start_service(handle.clone());

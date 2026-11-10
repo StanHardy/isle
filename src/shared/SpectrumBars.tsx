@@ -56,6 +56,8 @@ export default function SpectrumBars({
         el.style.opacity = v > 0.05 ? "1" : "0";
       }
       const on = energy / bands > 0.012;
+      const level = Math.min(1, energy / bands / 0.6);
+      document.documentElement.style.setProperty("--audio-energy", level.toFixed(3));
       if (on !== visibleRef.current && hostRef.current) {
         visibleRef.current = on;
         hostRef.current.style.opacity = on ? "1" : "0";

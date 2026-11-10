@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as api from "../../shared/api";
-import type { LyricsPayload, MediaInfo, MediaState } from "../../shared/types";
+import type { LyricsPayload, MediaInfo, MediaState, Reminder } from "../../shared/types";
 import { useIsland } from "../IslandRoot";
 
 function useMedia(): MediaState | null {
@@ -303,6 +303,76 @@ export function FocusModule() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+
+/** Repeat reminders: recurring nudges that fire a banner + chime. */
+export function RemindersModule() {
+  const [list, setList] = useState<Reminder[]>([]);
+  const [text, setText] = useState("");
+  const [intervalMin, setIntervalMin] = useState(30);
+
+  useEffect(() => {
+    api.remindersList().then(setList).catch(() => {});
+    const un = api.listen<Reminder[]>(api.ev.REMINDERS_SYNC, (e) => setList(e.payload));
+    return () => {
+      un.then((f) => f()).catch(() => {});
+    };
+  }, []);
+
+  return (
+    <div className="card">
+      <h3>Reminders</h3>
+      {list.length === 0 && <p className="muted">No repeating reminders.</p>}
+      <ul className="reminders-list">
+        {list.map((r) => (
+          <li key={r.id} className="reminder-row">
+            <span className="reminder-text">{r.text}</span>
+            <span className="clip-meta muted">every {r.intervalMin}m</span>
+            <button
+              type="button"
+              className="mini-btn"
+              aria-label="Delete reminder"
+              onClick={async () => {
+                await api.reminderDelete(r.id);
+                setList((l) => l.filter((x) => x.id !== r.id));
+              }}
+            >
+              ✕
+            </button>
+          </li>
+        ))}
+      </ul>
+      <form
+        className="timer-form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (!text.trim()) return;
+          await api.reminderAdd(text.trim(), intervalMin);
+          setText("");
+        }}
+      >
+        <input
+          type="text"
+          placeholder="Remind me to…"
+          aria-label="Reminder text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <select
+          aria-label="Reminder interval"
+          value={intervalMin}
+          onChange={(e) => setIntervalMin(Number(e.target.value))}
+        >
+          <option value="15">15m</option>
+          <option value="30">30m</option>
+          <option value="45">45m</option>
+          <option value="60">60m</option>
+        </select>
+        <button type="submit" className="chip">Add</button>
+      </form>
     </div>
   );
 }

@@ -131,7 +131,7 @@ impl Default for Settings {
             theme: Theme::System,
             hide_fullscreen: true,
             module_order: [
-                "media", "info", "timer", "focus", "note", "weather", "metrics", "lyrics", "bluetooth",
+                "media", "info", "timer", "reminders", "focus", "note", "weather", "metrics", "lyrics", "bluetooth",
                 "notifications", "clipboard",
             ]
             .iter()
@@ -141,6 +141,7 @@ impl Default for Settings {
                 ("media", true),
                 ("note", true),
                 ("timer", true),
+                ("reminders", true),
                 ("focus", true),
                 ("weather", true),
                 ("metrics", true),
@@ -188,6 +189,7 @@ impl Settings {
             Err(_) => defaults,
         };
         let mut settings: Settings = serde_json::from_value(merged).unwrap_or_default();
+        settings.module_order = migrate_module_order(&settings.module_order);
         if settings.bridge_token.is_empty() {
             settings.bridge_token = generate_token();
             settings.save();
@@ -207,6 +209,28 @@ impl Settings {
             }
         }
     }
+}
+
+/// Ensure every default module appears in a stored module order — new
+/// modules must appear without users hand-editing their settings.
+fn migrate_module_order(order: &[String]) -> Vec<String> {
+    let defaults = [
+        "media", "info", "timer", "reminders", "focus", "note", "weather", "metrics",
+        "lyrics", "bluetooth", "notifications", "clipboard",
+    ];
+    let mut out: Vec<String> = order.clone();
+    for m in defaults {
+        if !out.iter().any(|x| x == m) {
+            // Insert before the privacy-gated tail, keeping known ordering sane.
+            let pos = out
+                .iter()
+                .position(|x| x == "notifications" || x == "clipboard")
+                .unwrap_or(out.len());
+            out.insert(pos.min(out.len()), m.to_string());
+        }
+    }
+    out.retain(|m| defaults.contains(&m.as_str()));
+    out
 }
 
 /// Recursive merge: `stored` wins for scalars/arrays; objects merge key-wise.
@@ -250,7 +274,7 @@ pub const DEFAULT_SETTINGS_JSON: &str = r#"{
   "expandMode": "hover",
   "theme": "system",
   "hideFullscreen": true,
-  "moduleOrder": ["media", "info", "timer", "focus", "note", "weather", "metrics", "lyrics", "bluetooth", "notifications", "clipboard"],
+  "moduleOrder": ["media", "info", "timer", "reminders", "focus", "note", "weather", "metrics", "lyrics", "bluetooth", "notifications", "clipboard"],
   "modulesEnabled": {
     "media": true,
     "timer": true,

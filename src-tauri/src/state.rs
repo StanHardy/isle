@@ -21,6 +21,8 @@ pub struct AppState {
     pub notifications: Mutex<Vec<crate::notify::NotifyItem>>,
     /// Bluetooth device connection state by endpoint id.
     pub bt_devices: Mutex<HashMap<String, crate::bluetooth::BtDevice>>,
+    /// Repeat reminders (persisted to reminders.json).
+    pub reminders: Mutex<Vec<crate::reminders::Reminder>>,
     /// Whether the island UI currently wants metric samples.
     pub metrics_subscribed: AtomicBool,
     /// Looked-up TV/movie info keyed by media art key (bounded, oldest first).
@@ -57,6 +59,7 @@ impl AppState {
             clipboard: Mutex::new(ClipStore::default()),
             notifications: Mutex::new(Vec::new()),
             bt_devices: Mutex::new(HashMap::new()),
+            reminders: Mutex::new(Vec::new()),
             metrics_subscribed: AtomicBool::new(false),
             media_info: Mutex::new(Vec::new()),
         }

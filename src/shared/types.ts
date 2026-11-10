@@ -174,3 +174,10 @@ export interface Attention {
   title?: string;
   text?: string;
 }
+
+export interface Reminder {
+  id: number;
+  text: string;
+  intervalMin: number;
+  nextAtMs: number;
+}

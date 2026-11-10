@@ -23,7 +23,13 @@ import TimersModule from "./modules/TimersModule";
 import WeatherModule from "./modules/WeatherModule";
 import MetricsModule from "./modules/MetricsModule";
 import { BluetoothModule, ClipboardModule, NotificationsModule } from "./modules/PrivacyModules";
-import { FocusModule, InfoModule, LyricsModule, NoteModule } from "./modules/ExtrasModules";
+import {
+  FocusModule,
+  InfoModule,
+  LyricsModule,
+  NoteModule,
+  RemindersModule,
+} from "./modules/ExtrasModules";
 
 const COMPACT = { w: 348, h: 56 };
 const EXPANDED = { w: 424, h: 580 };
@@ -454,6 +460,8 @@ export default function IslandRoot() {
         return settings?.mediaEnabled ? <MediaModule key={id} art={art} tint={tint} /> : null;
       case "timer":
         return <TimersModule key={id} />;
+      case "reminders":
+        return <RemindersModule key={id} />;
       case "focus":
         return <FocusModule key={id} />;
       case "weather":
@@ -488,6 +496,7 @@ export default function IslandRoot() {
             {attention?.kind === "bt-connected" && <span>🔗 {attention.name}</span>}
             {attention?.kind === "bt-disconnected" && <span>◌ {attention.name}</span>}
             {attention?.kind === "phone-notify" && <span>📱 {attention.title ?? "Phone"}</span>}
+            {attention?.kind === "reminder" && <span>🔔 {attention.text}</span>}
             {attention?.kind === "welcome" && <span>{attention.text}</span>}
           </span>
         )}
@@ -589,6 +598,7 @@ export default function IslandRoot() {
         onMouseLeave={onPillLeave}
         data-expanded={mode === "expanded"}
         data-design={settings?.islandDesign ?? "pill"}
+        data-playing={media?.status === "playing" ? "true" : "false"}
       >
         {mode === "compact" && isStrip ? (
           <button
@@ -633,10 +643,11 @@ export default function IslandRoot() {
                 {settings
                   ? settings.moduleOrder
                       .filter((id) => settings.modulesEnabled[id])
-                      .map((id) => (
+                      .map((id, idx) => (
                         <div
                           key={id}
                           className={`bento-item ${WIDE_MODULES.has(id) ? "wide" : "narrow"}`}
+                        style={{ animationDelay: `${idx * 55}ms` }}
                         >
                           {renderModule(id)}
                         </div>
@@ -672,10 +683,11 @@ export default function IslandRoot() {
               {settings
                 ? settings.moduleOrder
                     .filter((id) => settings.modulesEnabled[id])
-                    .map((id) => (
+                    .map((id, idx) => (
                       <div
                         key={id}
                         className={`bento-item ${WIDE_MODULES.has(id) ? "wide" : "narrow"}`}
+                        style={{ animationDelay: `${idx * 55}ms` }}
                       >
                         {renderModule(id)}
                       </div>

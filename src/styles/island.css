@@ -514,8 +514,9 @@ button.pill .strip-center {
   padding: 12px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: dense;
   gap: 10px;
-  align-items: start;
+  align-items: stretch;
   align-content: start;
   scrollbar-width: thin;
   scrollbar-color: var(--stroke) transparent;
@@ -1281,4 +1282,140 @@ button:focus-visible {
 .hour-precip {
   font-size: 10px;
   color: var(--text-muted);
+}
+
+
+/* ---------- motion suite ---------- */
+
+/* Staggered card cascade on panel open */
+.bento-item {
+  animation: card-in 240ms ease backwards;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Card hover lift */
+.bento-item > .card {
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    border-color 140ms ease;
+}
+
+.bento-item > .card:hover {
+  transform: translateY(-2px);
+  border-color: var(--stroke-strong);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Album-tint breathing glow on the pill while media plays */
+.island-root[data-playing="true"] .pill::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 22px 2px var(--media-tint, transparent);
+  animation: breathe 3.2s ease-in-out infinite;
+}
+
+/* Audio-energy tint layer: opacity follows live loudness (--audio-energy) */
+.pill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--media-tint, transparent);
+  opacity: calc(var(--audio-energy, 0) * 0.3);
+  mix-blend-mode: screen;
+  transition: opacity 120ms linear;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.75; }
+}
+
+/* Attention pulse for timer-done / reminders */
+.pill-attention.att-timer-done,
+.pill-attention.att-reminder {
+  animation: att-pulse 0.9s ease 2;
+}
+
+@keyframes att-pulse {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.06); }
+}
+
+/* Animated wave line under the strip */
+.strip::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: strip-wave 7s linear infinite;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+@keyframes strip-wave {
+  0% { background-position: -50% 0; }
+  100% { background-position: 150% 0; }
+}
+
+/* reminders */
+.reminders-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reminder-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--stroke);
+}
+
+.reminder-text {
+  flex: 1;
+  font-size: 12.5px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bento-item,
+  .pill::after,
+  .strip::after,
+  .pill-attention.att-timer-done,
+  .pill-attention.att-reminder {
+    animation: none;
+  }
+  .bento-item > .card {
+    transition: none;
+  }
 }

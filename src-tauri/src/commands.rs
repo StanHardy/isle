@@ -485,6 +485,23 @@ pub fn focus_stats() -> Vec<(String, u32)> {
     crate::focus::last_days(7)
 }
 
+// ---- reminders ----
+
+#[tauri::command]
+pub fn reminders_list(app: AppHandle) -> Vec<crate::reminders::Reminder> {
+    crate::reminders::list(&app)
+}
+
+#[tauri::command]
+pub fn reminder_add(app: AppHandle, text: String, interval_min: u32) -> u64 {
+    crate::reminders::add(&app, text.trim(), interval_min)
+}
+
+#[tauri::command]
+pub fn reminder_delete(app: AppHandle, id: u64) {
+    crate::reminders::delete(&app, id)
+}
+
 // ---- clipboard ----
 
 #[tauri::command]
