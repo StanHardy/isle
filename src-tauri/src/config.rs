@@ -147,6 +147,7 @@ impl Default for Settings {
                 ("metrics", true),
                 ("info", true),
                 ("lyrics", true),
+                ("mic", true),
                 ("bluetooth", true),
                 ("notifications", false),
                 ("clipboard", false),
@@ -216,9 +217,9 @@ impl Settings {
 fn migrate_module_order(order: &[String]) -> Vec<String> {
     let defaults = [
         "media", "info", "timer", "reminders", "focus", "note", "weather", "metrics",
-        "lyrics", "bluetooth", "notifications", "clipboard",
+        "lyrics", "mic", "bluetooth", "notifications", "clipboard",
     ];
-    let mut out: Vec<String> = order.clone();
+    let mut out: Vec<String> = order.to_vec();
     for m in defaults {
         if !out.iter().any(|x| x == m) {
             // Insert before the privacy-gated tail, keeping known ordering sane.
@@ -274,7 +275,7 @@ pub const DEFAULT_SETTINGS_JSON: &str = r#"{
   "expandMode": "hover",
   "theme": "system",
   "hideFullscreen": true,
-  "moduleOrder": ["media", "info", "timer", "reminders", "focus", "note", "weather", "metrics", "lyrics", "bluetooth", "notifications", "clipboard"],
+  "moduleOrder": ["media", "info", "timer", "reminders", "focus", "note", "weather", "metrics", "lyrics", "mic", "bluetooth", "notifications", "clipboard"],
   "modulesEnabled": {
     "media": true,
     "timer": true,

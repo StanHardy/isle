@@ -157,6 +157,8 @@ pub fn run() {
             commands::show_island,
             commands::quit_app,
             commands::copy_now_playing,
+            commands::mic_state,
+            commands::mic_set_mute_state,
             commands::keep_awake_set,
             commands::keep_awake_off,
             commands::note_get,

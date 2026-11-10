@@ -27,6 +27,7 @@ import {
   FocusModule,
   InfoModule,
   LyricsModule,
+  MicModule,
   NoteModule,
   RemindersModule,
 } from "./modules/ExtrasModules";
@@ -215,6 +216,18 @@ export default function IslandRoot() {
   const [fsHidden, setFsHidden] = useState(false);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [info, setInfo] = useState<{ key: string; poster: string } | null>(null);
+  const [micMuted, setMicMuted] = useState(false);
+
+  useEffect(() => {
+    const poll = () =>
+      api
+        .micState()
+        .then((m) => setMicMuted(m))
+        .catch(() => {});
+    poll();
+    const iv = setInterval(poll, 3000);
+    return () => clearInterval(iv);
+  }, []);
 
   const wSpring = useRef(new Spring(COMPACT.w, { stiffness: 210, damping: 24 }));
   const hSpring = useRef(new Spring(COMPACT.h, { stiffness: 210, damping: 24 }));
@@ -474,6 +487,8 @@ export default function IslandRoot() {
         return settings?.lyricsEnabled ? <LyricsModule key={id} /> : null;
       case "note":
         return <NoteModule key={id} />;
+      case "mic":
+        return <MicModule key={id} />;
       case "bluetooth":
         return settings?.bluetoothEnabled ? <BluetoothModule key={id} /> : null;
       case "notifications":
@@ -618,7 +633,15 @@ export default function IslandRoot() {
             aria-label={`Isle: ${pillKind === "media" ? `${media?.title} — ${media?.artist}` : pillKind === "timer" ? `Timer ${fmtCountdown(activeTimer?.remainingMs ?? 0)}` : "open panel"}`}
             onClick={() => settings?.expandMode === "click" && expand()}
           >
-            <div className="pill-left" aria-hidden="true">{renderPillContent(false)}</div>
+            <div className="pill-left" aria-hidden="true">
+              {micMuted && (
+                <span className="pill-timer">
+                  <span className="pill-dot muted-dot" />
+                  mic muted
+                </span>
+              )}
+              {renderPillContent(false)}
+            </div>
             <div className="pill-right" aria-hidden="true">
               {pillKind !== "clock" && (
                 <SpectrumBars

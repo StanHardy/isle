@@ -376,3 +376,48 @@ export function RemindersModule() {
     </div>
   );
 }
+
+
+/** Microphone mute toggle + live state. */
+export function MicModule() {
+  const [muted, setMuted] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = () => {
+    api
+      .micState()
+      .then((m) => {
+        setMuted(m);
+        setError(null);
+      })
+      .catch(() => setError("unavailable"));
+  };
+
+  useEffect(() => {
+    refresh();
+    const iv = setInterval(refresh, 3000);
+    return () => clearInterval(iv);
+  }, []);
+
+  return (
+    <div className="card">
+      <h3>Microphone</h3>
+      {error && <p className="error-text">Microphone unavailable.</p>}
+      {!error && (
+        <div className="mic-row">
+          <span className={muted ? "mic-dot muted-dot" : "mic-dot live-dot"} aria-hidden="true" />
+          <span className={muted ? "muted" : ""}>
+            {muted ? "Microphone muted" : "Microphone live"}
+          </span>
+          <button
+            type="button"
+            className="chip"
+            onClick={async () => setMuted(await api.micSetMute(!muted))}
+          >
+            {muted ? "Unmute" : "Mute"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1419,3 +1419,27 @@ button:focus-visible {
     transition: none;
   }
 }
+
+
+/* microphone */
+.mic-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mic-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.live-dot {
+  background: #6fd08c;
+  box-shadow: 0 0 8px rgba(111, 208, 140, 0.5);
+}
+
+.muted-dot {
+  background: #ff6b6b;
+  box-shadow: 0 0 8px rgba(255, 107, 107, 0.5);
+}

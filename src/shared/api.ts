@@ -55,6 +55,9 @@ export interface AwakeState {
 export const keepAwakeSet = (minutes: number) =>
   invoke<number>("keep_awake_set", { minutes });
 export const keepAwakeOff = () => invoke("keep_awake_off");
+export const micState = () => invoke<boolean>("mic_state");
+export const micSetMute = (muted: boolean) =>
+  invoke<boolean>("mic_set_mute_state", { muted });
 export const noteGet = () => invoke<string>("note_get");
 export const noteSave = (text: string) => invoke("note_save", { text });
 export const focusStats = () =>

@@ -31,6 +31,7 @@ features = [
   "Foundation_Collections",
   "Media_Control",
   "Win32_Media_Audio",
+  "Win32_Media_Audio_Endpoints",
   "Storage_Streams",
   "Devices_Enumeration",
   "Win32_Foundation",

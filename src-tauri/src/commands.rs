@@ -454,6 +454,21 @@ pub fn copy_now_playing(app: AppHandle) -> Result<bool, String> {
     Ok(crate::clipboard::set_text(&text))
 }
 
+// ---- microphone ----
+
+#[tauri::command]
+pub fn mic_state() -> bool {
+    crate::audio::mic_muted()
+}
+
+#[tauri::command]
+pub fn mic_set_mute_state(muted: bool) -> bool {
+    match crate::audio::mic_set_mute(muted) {
+        Ok(()) => muted,
+        Err(_) => crate::audio::mic_muted(),
+    }
+}
+
 // ---- keep-awake ----
 
 #[tauri::command]
