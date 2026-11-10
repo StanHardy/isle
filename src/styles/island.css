@@ -9,7 +9,14 @@
 
 :root {
   --accent: #4cc2ff;
-  --bg: rgba(18, 18, 23, 0.86);
+  --bg: rgba(18, 18, 23, 0.93);
+  /* Top edge is darker to mask the backdrop-filter edge band that appears
+     over bright wallpapers. */
+  --bg-gradient: linear-gradient(
+    to bottom,
+    rgba(14, 14, 18, 0.97),
+    rgba(18, 18, 23, 0.92)
+  );
   --bg-card: rgba(255, 255, 255, 0.05);
   --bg-card-hover: rgba(255, 255, 255, 0.09);
   --stroke: rgba(255, 255, 255, 0.08);
@@ -105,7 +112,7 @@ body,
   padding: 0 16px;
   border: 1px solid var(--stroke);
   border-radius: var(--radius-pill);
-  background: var(--bg);
+  background: var(--bg-gradient);
   backdrop-filter: blur(30px) saturate(1.4);
   box-shadow: var(--rim), var(--shadow);
   color: var(--text);
@@ -331,7 +338,7 @@ body,
   height: 100%;
   border: 1px solid var(--stroke);
   border-radius: var(--radius-panel);
-  background: var(--bg);
+  background: var(--bg-gradient);
   backdrop-filter: blur(34px) saturate(1.4);
   box-shadow: var(--rim), var(--shadow);
   overflow: hidden;

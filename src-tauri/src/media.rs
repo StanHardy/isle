@@ -6,6 +6,7 @@
 //! interface state needs to be shared between threads.
 
 use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use base64::Engine;
 use serde::Serialize;
@@ -24,6 +25,11 @@ use crate::state::AppState;
 static APP: OnceLock<AppHandle> = OnceLock::new();
 /// Art is only re-sent when the media key changes; the frontend caches by key.
 static LAST_ART_KEY: Mutex<String> = Mutex::new(String::new());
+/// Retry bookkeeping for artwork that failed to download: (key, attempts).
+/// A failed fetch must NOT lock the key in (Spotify occasionally serves a
+/// stream that fails once) — we reset the key so the 2 s poll retries, up
+/// to three attempts per track.
+static ART_RETRY: Mutex<(String, u32)> = Mutex::new((String::new(), 0));
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -108,28 +114,82 @@ fn request_manager() -> windows::core::Result<GlobalSystemMediaTransportControls
     wait(GlobalSystemMediaTransportControlsSessionManager::RequestAsync()?)
 }
 
-/// The manager is a per-process singleton; prefer the playing session.
+/// Per-session playback activity: last observed position and when it was
+/// last seen ADVANCING while Playing. Some players (mpc-hc) keep status
+/// "Playing" at end-of-file with a frozen position — position movement is
+/// the only reliable signal of a genuinely active session.
+static SESSION_ACTIVITY: OnceLock<Mutex<std::collections::HashMap<String, (u64, Instant)>>> =
+    OnceLock::new();
+const ACTIVITY_WINDOW: Duration = Duration::from_secs(3);
+
+fn session_activity() -> &'static Mutex<std::collections::HashMap<String, (u64, Instant)>> {
+    SESSION_ACTIVITY.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Pick the current session: prefer one whose position is actually
+/// advancing, then any Playing session, then the first session.
 fn pick_session(
     mgr: &GlobalSystemMediaTransportControlsSessionManager,
 ) -> windows::core::Result<Option<GlobalSystemMediaTransportControlsSession>> {
     let sessions = mgr.GetSessions()?;
     let count = sessions.Size()?;
-    let mut playing = None;
-    let mut first = None;
-    for i in 0..count {
-        let s = sessions.GetAt(i)?;
-        let status = s
-            .GetPlaybackInfo()
-            .and_then(|p| p.PlaybackStatus())
-            .unwrap_or(PlaybackStatus::Stopped);
-        if first.is_none() {
-            first = Some(s.clone());
+    let now = Instant::now();
+    let mut best: Option<(u8, GlobalSystemMediaTransportControlsSession, Instant)> = None;
+    {
+        let mut activity = session_activity().lock().expect("session activity lock");
+        for i in 0..count {
+            let s = sessions.GetAt(i)?;
+            let id = s.SourceAppUserModelId().map(|x| x.to_string()).unwrap_or_default();
+            let status = s
+                .GetPlaybackInfo()
+                .and_then(|p| p.PlaybackStatus())
+                .unwrap_or(PlaybackStatus::Stopped);
+            let (pos_ms, end_ms) = match s.GetTimelineProperties() {
+                Ok(t) => (
+                    t.Position().map(|p| (p.Duration / 10_000).max(0) as u64).unwrap_or(0),
+                    t.EndTime().map(|e| (e.Duration / 10_000).max(0) as u64).unwrap_or(0),
+                ),
+                Err(_) => (0, 0),
+            };
+            let entry = activity.entry(id).or_insert((u64::MAX, now));
+            let moved = pos_ms != entry.0;
+            if moved && status == PlaybackStatus::Playing {
+                entry.0 = pos_ms;
+                entry.1 = now;
+            } else if moved {
+                // Position changed while not Playing (seek while paused) —
+                // track it so a stale record doesn't linger.
+                entry.0 = pos_ms;
+            }
+            // Score: actively advancing > playing > paused > ended-at-end.
+            // Some players (mpc-hc) hold status Playing at end-of-file with a
+            // frozen position; that must not beat a paused session.
+            let ended = end_ms > 0 && pos_ms + 1000 >= end_ms;
+            let score: u8 = if entry.1.elapsed() < ACTIVITY_WINDOW {
+                3
+            } else if status == PlaybackStatus::Playing && !ended {
+                2
+            } else if status == PlaybackStatus::Playing {
+                0
+            } else {
+                1
+            };
+            let replace = match &best {
+                None => true,
+                Some((best_score, _, best_time)) => {
+                    score > *best_score
+                        || (score == *best_score && entry.1 > *best_time)
+                }
+            };
+            if replace {
+                best = Some((score, s, entry.1));
+            }
         }
-        if status == PlaybackStatus::Playing && playing.is_none() {
-            playing = Some(s);
+        if activity.len() > 16 {
+            activity.clear();
         }
     }
-    Ok(playing.or(first))
+    Ok(best.map(|(_, s, _)| Some(s)).unwrap_or(None))
 }
 
 pub fn start(app: AppHandle) {
@@ -139,8 +199,21 @@ pub fn start(app: AppHandle) {
         if let Err(err) = subscribe(&app) {
             eprintln!("[media] subscribe failed: {err}");
         }
+        attach_all(&app);
         if let Err(err) = refresh(&app) {
             eprintln!("[media] initial refresh failed: {err}");
+        }
+        // Poll safety net: a session whose status flips (e.g. Spotify goes
+        // from paused to playing) does NOT fire SessionsChanged — it already
+        // existed — and if we never picked it, it has no per-session
+        // handlers. Polling re-picks the Playing session within 2 s no
+        // matter what.
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            ensure_com();
+            if let Err(err) = refresh(&app) {
+                eprintln!("[media] poll refresh failed: {err}");
+            }
         }
     });
 }
@@ -155,6 +228,9 @@ fn subscribe(app: &AppHandle) -> windows::core::Result<()> {
         let app = handler_app.clone();
         tauri::async_runtime::spawn_blocking(move || {
             ensure_com();
+            // The session set changed: re-attach handlers to every session
+            // (any of them may become the picked one later) and re-pick.
+            attach_all(&app);
             if let Err(err) = refresh(&app) {
                 eprintln!("[media] refresh failed: {err}");
             }
@@ -165,17 +241,69 @@ fn subscribe(app: &AppHandle) -> windows::core::Result<()> {
     Ok(())
 }
 
+/// Attach change handlers to EVERY session so that any session's metadata /
+/// playback / timeline change re-picks the current one — including sessions
+/// that are paused now but start playing later (the Spotify case).
+fn attach_all(app: &AppHandle) {
+    let mgr = match request_manager() {
+        Ok(m) => m,
+        Err(err) => {
+            eprintln!("[media] attach_all failed: {err}");
+            return;
+        }
+    };
+    let sessions = match mgr.GetSessions() {
+        Ok(s) => s,
+        Err(err) => {
+            eprintln!("[media] attach_all sessions failed: {err}");
+            return;
+        }
+    };
+    let count = sessions.Size().unwrap_or(0);
+    for i in 0..count {
+        if let Ok(s) = sessions.GetAt(i) {
+            attach_handlers(&s, app);
+        }
+    }
+}
+
+/// Track art-fetch success/failure; a failed fetch releases the key so the
+/// 2 s poll retries (max 3 attempts per track).
+fn note_art_result(key: &str, want_art: bool, got_art: bool) {
+    if !want_art {
+        return;
+    }
+    if got_art {
+        *ART_RETRY.lock().expect("art retry lock") = (key.to_string(), 0);
+        return;
+    }
+    let mut retry = ART_RETRY.lock().expect("art retry lock");
+    let attempts = if retry.0 == key { retry.1 + 1 } else { 1 };
+    *retry = (key.to_string(), attempts);
+    if attempts < 3 {
+        *LAST_ART_KEY.lock().expect("art key lock") = String::new();
+        crate::events::debug_log(&format!(
+            "[media] art fetch failed (attempt {attempts}) — retrying: {key}"
+        ));
+    } else {
+        crate::events::debug_log(&format!(
+            "[media] art fetch failed {attempts}x — giving up: {key}"
+        ));
+    }
+}
+
 /// Re-pick the current session and emit fresh state (blocking).
 fn refresh(app: &AppHandle) -> windows::core::Result<()> {
     let mgr = request_manager()?;
     let session = pick_session(&mgr)?;
     match session {
         Some(s) => {
-            attach_handlers(&s, app);
             let want_art = art_key_changed(&s)?;
             let state = build_state(&s, want_art)?;
             let key = state.art_key.clone();
+            let got_art = state.art_b64.is_some();
             update_and_emit(app, Some(state));
+            note_art_result(&key, want_art, got_art);
             if want_art {
                 schedule_info_lookup(app, key);
             }
@@ -335,7 +463,9 @@ fn emit_current(app: &AppHandle, force_art: bool) -> windows::core::Result<()> {
             };
             let state = build_state(&s, want_art)?;
             let key = state.art_key.clone();
+            let got_art = state.art_b64.is_some();
             update_and_emit(app, Some(state));
+            note_art_result(&key, want_art, got_art);
             if want_art {
                 schedule_info_lookup(app, key);
             }
@@ -504,6 +634,9 @@ fn pretty_app(id: &str) -> String {
 }
 
 /// Download the thumbnail stream into (mime, bytes); runs on a blocking thread.
+/// NOTE: DataReader::FromBuffer needs no LoadAsync — the buffer is already
+/// fully populated, and calling LoadAsync on it fails outright for some
+/// providers (Spotify: 0x800710DD "operation identifier is not valid").
 fn read_art(
     stream_ref: windows::Storage::Streams::IRandomAccessStreamReference,
 ) -> windows::core::Result<(String, Vec<u8>)> {
@@ -514,7 +647,6 @@ fn read_art(
     let read = wait_p(stream.ReadAsync(&buf, size, InputStreamOptions::ReadAhead)?)?;
     let len = read.Length()? as usize;
     let reader = DataReader::FromBuffer(&read)?;
-    wait(reader.LoadAsync(len as u32)?)?;
     let mut bytes = vec![0u8; len];
     reader.ReadBytes(&mut bytes)?;
     let mime = if !mime_declared.is_empty() {
@@ -537,10 +669,34 @@ fn detect_mime(bytes: &[u8]) -> &'static str {
     }
 }
 
+/// Identity of a media snapshot ignoring artwork bytes (art arrives on key
+/// change only). Used to suppress duplicate emits — duplicate per-session
+/// handlers and the poll can both produce identical states.
+fn fingerprint(s: &MediaState) -> serde_json::Value {
+    let mut v = serde_json::to_value(s).expect("media serialize");
+    if let Some(obj) = v.as_object_mut() {
+        obj.insert(
+            "artB64".into(),
+            serde_json::Value::Bool(s.art_b64.is_some()),
+        );
+    }
+    v
+}
+
 fn update_and_emit(app: &AppHandle, state: Option<MediaState>) {
+    let changed;
     {
         let state_ref: tauri::State<AppState> = app.state();
-        *state_ref.media.lock().expect("media state lock") = state.clone();
+        let mut guard = state_ref.media.lock().expect("media state lock");
+        changed = match (&*guard, &state) {
+            (Some(prev), Some(next)) => fingerprint(prev) != fingerprint(next),
+            (None, None) => false,
+            _ => true,
+        };
+        if !changed {
+            return;
+        }
+        *guard = state.clone();
     }
     events::emit(app, ev::MEDIA, &state);
 }
@@ -627,5 +783,45 @@ mod tests {
         assert_eq!(display_title("ASAP S1E1"), "ASAP · S01E01");
         // No extension stripping without a known video extension.
         assert_eq!(display_title("Regular Song Name"), "Regular Song Name");
+    }
+
+    fn sample_state() -> MediaState {
+        MediaState {
+            id: "spotify".into(),
+            app: "Spotify".into(),
+            title: "You Know".into(),
+            raw_title: "You Know".into(),
+            artist: "Wake N' Bake, Merkules".into(),
+            album: "You Know".into(),
+            status: "playing".into(),
+            position_ms: 18_000,
+            duration_ms: 193_000,
+            art_key: "You Know|Wake N' Bake, Merkules|You Know|193000".into(),
+            art_b64: None,
+            can_play: true,
+            can_pause: true,
+            can_next: true,
+            can_prev: true,
+            shuffle: None,
+            repeat: None,
+        }
+    }
+
+    #[test]
+    fn fingerprint_ignores_art_bytes_but_not_metadata() {
+        let a = sample_state();
+        let mut b = a.clone();
+        b.art_b64 = Some("data:image/png;base64,xxx".into());
+        // Art byte presence alone (same key) must not re-trigger emits.
+        assert_ne!(fingerprint(&a), fingerprint(&b));
+        let mut c = a.clone();
+        c.art_b64 = None;
+        assert_eq!(fingerprint(&a), fingerprint(&c));
+        let mut d = a.clone();
+        d.position_ms += 500;
+        assert_ne!(fingerprint(&a), fingerprint(&d));
+        let mut e = a.clone();
+        e.status = "paused".into();
+        assert_ne!(fingerprint(&a), fingerprint(&e));
     }
 }

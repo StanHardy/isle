@@ -34,7 +34,7 @@ export default function SpectrumBars({
         energy += v;
         const h = Math.max(2, Math.round(v * height));
         el.style.height = `${h}px`;
-        el.style.opacity = v > 0.04 ? "1" : "0.3";
+        el.style.opacity = v > 0.05 ? "1" : "0";
       }
       const on = energy / bands > 0.012;
       if (on !== visibleRef.current && hostRef.current) {

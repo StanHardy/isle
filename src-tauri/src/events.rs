@@ -25,3 +25,27 @@ pub fn emit<T: Serialize>(app: &AppHandle, event: &str, payload: &T) {
         eprintln!("[isle] emit {event} failed: {err}");
     }
 }
+
+/// Append a line to %APPDATA%/com.stanhardy.isle/debug.log — diagnostics for
+/// problems that are invisible in a windowed app (no console attached).
+/// Rotates at 256 KB.
+pub fn debug_log(msg: &str) {
+    use std::io::Write;
+    let path = crate::config::data_dir().join("debug.log");
+    let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) else {
+        return;
+    };
+    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+    if len > 256 * 1024 {
+        let _ = std::fs::remove_file(&path);
+        let Ok(f2) = std::fs::OpenOptions::new().create(true).append(true).open(&path) else {
+            return;
+        };
+        f = f2;
+    }
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let _ = writeln!(f, "[{secs}] {msg}");
+}
