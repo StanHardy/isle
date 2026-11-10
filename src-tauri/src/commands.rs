@@ -376,11 +376,42 @@ fn http_client() -> &'static reqwest::Client {
 }
 
 /// Fetch a remote image into a data URL so the frontend can canvas-sample
+/// it without CORS taint (used for album/poster tint). Capped at 3 MB and
+/// domain-allowlisted to the providers Isle actually uses — this command is
+/// IPC-exposed, so it must not become a general-purpose proxy.
+const IMAGE_HOST_ALLOWLIST: &[&str] = &[
+    "static.tvmaze.com",
+    "image.tmdb.org",
+    "is1-ssl.mzstatic.com",
+    "is2-ssl.mzstatic.com",
+    "is3-ssl.mzstatic.com",
+    "is4-ssl.mzstatic.com",
+    "is5-ssl.mzstatic.com",
+];
+
+fn image_host_allowed(url: &str) -> bool {
+    let host = url
+        .split("://")
+        .nth(1)
+        .unwrap_or("")
+        .split('/')
+        .next()
+        .unwrap_or("")
+        .to_lowercase();
+    IMAGE_HOST_ALLOWLIST
+        .iter()
+        .any(|allowed| host == *allowed || host.ends_with(&format!(".{allowed}")))
+}
+
+/// Fetch a remote image into a data URL so the frontend can canvas-sample
 /// it without CORS taint (used for album/poster tint). Capped at 3 MB.
 #[tauri::command]
 pub async fn fetch_data_url(url: String) -> Result<String, String> {
     if !url.starts_with("https://") && !url.starts_with("http://") {
         return Err("only http(s) urls allowed".into());
+    }
+    if !image_host_allowed(&url) {
+        return Err("image host not allowlisted".into());
     }
     let resp = http_client()
         .get(&url)
@@ -527,6 +558,55 @@ pub fn providers_has_tmdb(app: AppHandle) -> bool {
     let state: tauri::State<AppState> = app.state();
     let s = state.settings.read().expect("settings lock");
     s.tmdb_configured
+}
+
+// ---- updater ----
+
+/// Check the update endpoint. Fails with a readable error when the release
+/// feed doesn't exist yet (the repo isn't published) — the UI surfaces that.
+#[tauri::command]
+pub async fn update_check(app: AppHandle) -> Result<serde_json::Value, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater_builder().build().map_err(|e| e.to_string())?;
+    let update = updater.check().await.map_err(|e| e.to_string())?;
+    Ok(match update {
+        Some(u) => serde_json::json!({
+            "available": true,
+            "version": u.version,
+            "notes": u.body.clone().unwrap_or_default(),
+        }),
+        None => serde_json::json!({ "available": false }),
+    })
+}
+
+/// Download + install the pending update, then restart the app.
+#[tauri::command]
+pub async fn update_install(app: AppHandle) -> Result<(), String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater_builder().build().map_err(|e| e.to_string())?;
+    let update = updater
+        .check()
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or("no update available")?;
+    update
+        .download_and_install(
+            |downloaded, total| {
+                crate::events::debug_log(&format!(
+                    "[updater] downloaded {downloaded}/{}",
+                    total.map(|t| t.to_string()).unwrap_or_else(|| "?".into())
+                ));
+            },
+            || {
+                crate::events::debug_log("[updater] download finished");
+            },
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    crate::events::debug_log("[updater] installed — restarting");
+    app.restart();
+    #[allow(unreachable_code)]
+    Ok(())
 }
 
 // theme helper for FE (system dark detection)

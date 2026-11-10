@@ -1,5 +1,9 @@
+use std::collections::HashMap;
 use std::io::Read;
+use std::net::IpAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Manager};
 use tiny_http::{Method, Request, Response, Server};
@@ -54,6 +58,11 @@ fn handle(app: &AppHandle, mut request: Request) {
         .read_to_end(&mut body);
     let body = String::from_utf8_lossy(&body).to_string();
 
+    if !rate_ok(request.remote_addr()) {
+        let _ = request.respond(resp(429, r#"{"error":"slow down"}"#));
+        return;
+    }
+
     let response = match (&method, url.as_str()) {
         (Method::Get, "/ping") => resp(200, r#"{"status":"ok","app":"isle"}"#),
         (Method::Post, "/notify") => handle_notify(app, &body),
@@ -61,6 +70,35 @@ fn handle(app: &AppHandle, mut request: Request) {
         _ => resp(404, r#"{"error":"not found"}"#),
     };
     let _ = request.respond(response);
+}
+
+/// Per-source-IP rate limiting: max 20 requests per 10 s window. tiny_http
+/// handles requests sequentially on one thread, so the counter is cheap and
+/// safe without a lock.
+const RATE_LIMIT: u32 = 20;
+const RATE_WINDOW: Duration = Duration::from_secs(10);
+static RATE: OnceLock<Mutex<HashMap<IpAddr, (u32, Instant)>>> = OnceLock::new();
+
+fn rate_map() -> &'static Mutex<HashMap<IpAddr, (u32, Instant)>> {
+    RATE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn rate_ok(addr: Option<&std::net::SocketAddr>) -> bool {
+    let Some(addr) = addr else { return true };
+    let ip = addr.ip();
+    let mut map = rate_map().lock().expect("rate lock");
+    let now = Instant::now();
+    let entry = map.entry(ip).or_insert((0, now));
+    if now.duration_since(entry.1) > RATE_WINDOW {
+        *entry = (0, now);
+    }
+    entry.0 += 1;
+    entry.1 = now;
+    let n = entry.0;
+    if map.len() > 256 {
+        map.clear();
+    }
+    n <= RATE_LIMIT
 }
 
 fn resp(status: u16, body: &str) -> Response<std::io::Cursor<Vec<u8>>> {

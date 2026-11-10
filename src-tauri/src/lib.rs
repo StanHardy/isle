@@ -93,6 +93,33 @@ fn create_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Startup diagnostics: log every connected monitor (name, geometry, DPI)
+/// so multi-monitor placement issues are diagnosable from debug.log.
+fn log_monitors(app: &tauri::AppHandle) {
+    match app.available_monitors() {
+        Ok(monitors) => {
+            let primary = app.primary_monitor().ok().flatten();
+            for m in monitors {
+                let is_primary = primary
+                    .as_ref()
+                    .map(|p| p.name() == m.name())
+                    .unwrap_or(false);
+                crate::events::debug_log(&format!(
+                    "[startup] monitor {:?} pos({}, {}) {}x{} scale={} primary={}",
+                    m.name(),
+                    m.position().x,
+                    m.position().y,
+                    m.size().width,
+                    m.size().height,
+                    m.scale_factor(),
+                    is_primary
+                ));
+            }
+        }
+        Err(err) => crate::events::debug_log(&format!("[startup] monitors: {err}")),
+    }
+}
+
 fn show_settings(app: &tauri::AppHandle) {
     if let Some(win) = island_window::settings_window(app) {
         let _ = win.show();
@@ -115,6 +142,7 @@ pub fn run() {
         return;
     }
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             commands::island_set_frame,
@@ -125,6 +153,8 @@ pub fn run() {
             commands::show_island,
             commands::quit_app,
             commands::frontend_log,
+            commands::update_check,
+            commands::update_install,
             commands::island_anchor,
             commands::settings_get,
             commands::settings_update,
@@ -165,6 +195,8 @@ pub fn run() {
         ])
         .setup(|app| {
             let handle = app.handle().clone();
+            crate::events::debug_log("[startup] isle launched");
+            log_monitors(&handle);
             island_window::create(&handle)?;
             island_window::create_settings(&handle)?;
             create_tray(&handle)?;

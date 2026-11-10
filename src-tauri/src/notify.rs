@@ -24,6 +24,61 @@ static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 /// Toast re-render dedupe: Win11 re-renders banners during their entrance.
 static LAST_KEY: Mutex<(String, Option<Instant>)> = Mutex::new((String::new(), None));
 
+/// The toast banner's CoreWindow title is the localized "New notification"
+/// string — match the common ones so the mirror works beyond English
+/// installs. Unknown titles are logged once each (debug.log) so a missed
+/// locale is self-diagnosing.
+const TOAST_TITLES: &[&str] = &[
+    "New notification",      // en
+    "Neue Benachrichtigung", // de
+    "Nouvelle notification", // fr
+    "Nueva notificación",    // es
+    "Nuova notifica",        // it
+    "Nova notificação",      // pt-BR
+    "Новое уведомление",     // ru
+    "Нове повідомлення",     // uk
+    "Nowe powiadomienie",    // pl
+    "Nieuwe melding",        // nl
+    "Yeni bildirim",         // tr
+    "新しい通知",              // ja
+    "새 알림",                // ko
+    "新通知",                 // zh-CN / zh-TW
+    "إعلام جديد",             // ar
+    "नई सूचना",               // hi
+    "Nytt meddelande",       // sv
+    "Ny meddelelse",         // da
+    "Uusi ilmoitus",         // fi
+    "Nytt varsel",           // nb
+    "Nové oznámení",         // cs
+    "Νέα ειδοποίηση",        // el
+    "Új értesítés",          // hu
+    "Notificare nouă",       // ro
+    "הודעה חדשה",             // he
+    "การแจ้งเตือนใหม่",        // th
+    "Thông báo mới",         // vi
+    "Notifikasi baru",       // id
+];
+
+static SEEN_TITLES: OnceLock<Mutex<std::collections::HashSet<String>>> = OnceLock::new();
+
+fn seen_titles() -> &'static Mutex<std::collections::HashSet<String>> {
+    SEEN_TITLES.get_or_init(|| Mutex::new(std::collections::HashSet::new()))
+}
+
+fn is_toast_banner(title: &str) -> bool {
+    if TOAST_TITLES.iter().any(|t| *t == title) {
+        return true;
+    }
+    // Diagnose future locales: log each unknown CoreWindow title once.
+    let mut seen = seen_titles().lock().expect("seen titles lock");
+    if seen.insert(title.to_string()) {
+        crate::events::debug_log(&format!(
+            "[notify] unknown CoreWindow title {title:?} — report this to add your locale"
+        ));
+    }
+    false
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NotifyItem {
@@ -90,7 +145,7 @@ unsafe extern "system" fn winevent_proc(
     let mut buf = [0u16; 128];
     let n = GetWindowTextW(hwnd, &mut buf);
     let title = String::from_utf16_lossy(&buf[..n.max(0) as usize]);
-    if title != "New notification" {
+    if !is_toast_banner(&title) {
         return;
     }
     if let Some(item) = read_toast(hwnd) {

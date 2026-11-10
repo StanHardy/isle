@@ -45,6 +45,11 @@ export const quitApp = () => invoke("quit_app");
 export const islandAnchor = () => invoke<Anchor>("island_anchor");
 export const frontendLog = (message: string) =>
   invoke("frontend_log", { message }).catch(() => {});
+export const updateCheck = () =>
+  invoke<{ available: boolean; version?: string; notes?: string }>(
+    "update_check",
+  );
+export const updateInstall = () => invoke<void>("update_install");
 /** Fetch a remote image through Rust as a data URL (CORS-safe canvas sampling). */
 export const fetchDataUrl = (url: string) =>
   invoke<string | null>("fetch_data_url", { url }).catch(() => null);

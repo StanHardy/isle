@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import * as api from "../shared/api";
 import type { GeoResult, Settings as SettingsType } from "../shared/types";
 
@@ -46,6 +47,71 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h2>{title}</h2>
       <div className="settings-group">{children}</div>
     </section>
+  );
+}
+
+function UpdaterRow() {
+  const [version, setVersion] = useState("");
+  const [state, setState] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    version?: string;
+    error?: string;
+  }>({ checking: false, available: null });
+
+  useEffect(() => {
+    getVersion()
+      .then(setVersion)
+      .catch(() => setVersion("?"));
+  }, []);
+
+  const check = async () => {
+    setState({ checking: true, available: null });
+    try {
+      const r = await api.updateCheck();
+      setState({ checking: false, available: r.available, version: r.version });
+    } catch (e) {
+      setState({ checking: false, available: false, error: String(e) });
+    }
+  };
+
+  const install = async () => {
+    setState({ checking: true, available: true, version: state.version });
+    try {
+      await api.updateInstall(); // restarts the app on success
+    } catch (e) {
+      setState({ checking: false, available: true, version: state.version, error: String(e) });
+    }
+  };
+
+  return (
+    <div className="setting-row">
+      <span className="setting-text">
+        <span className="setting-label">Updates</span>
+        <span className="setting-hint">
+          {state.error
+            ? `Update check failed: ${state.error}`
+            : state.available === true
+              ? `Update available: Isle ${state.version}`
+              : state.available === false
+                ? "You're up to date."
+                : version
+                  ? `Installed version: ${version}`
+                  : "Checking version…"}
+        </span>
+      </span>
+      <span className="module-controls">
+        {state.available === true ? (
+          <button type="button" className="chip" onClick={install} disabled={state.checking}>
+            {state.checking ? "Installing…" : "Download & install"}
+          </button>
+        ) : (
+          <button type="button" className="chip" onClick={check} disabled={state.checking}>
+            {state.checking ? "Checking…" : "Check for updates"}
+          </button>
+        )}
+      </span>
+    </div>
   );
 }
 
@@ -504,6 +570,7 @@ export default function SettingsApp() {
                 and React. Media via GlobalSystemMediaTransportControls; device events via
                 Windows.Devices.Enumeration; secrets in Windows Credential Manager.
               </p>
+              <UpdaterRow />
               <div className="setting-row">
                 <button type="button" className="chip" onClick={() => api.quitApp()}>
                   Quit Isle
