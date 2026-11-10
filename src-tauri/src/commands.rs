@@ -1,3 +1,4 @@
+use base64::Engine as _;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::bluetooth;
@@ -352,6 +353,39 @@ pub fn media_info_cached(app: AppHandle) -> Option<tmdb::MediaInfo> {
     let m = state.media.lock().expect("media state lock").clone()?;
     let cache = state.media_info.lock().expect("media info lock");
     crate::state::media_info_get(&cache, &m.art_key)
+}
+
+/// Fetch a remote image into a data URL so the frontend can canvas-sample
+/// it without CORS taint (used for album/poster tint). Capped at 3 MB.
+#[tauri::command]
+pub async fn fetch_data_url(url: String) -> Result<String, String> {
+    if !url.starts_with("https://") && !url.starts_with("http://") {
+        return Err("only http(s) urls allowed".into());
+    }
+    let resp = reqwest::get(&url)
+        .await
+        .and_then(|r| r.error_for_status())
+        .map_err(|e| e.to_string())?;
+    let mime = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("image/jpeg")
+        .split(';')
+        .next()
+        .unwrap_or("image/jpeg")
+        .to_string();
+    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    if bytes.len() > 3 * 1024 * 1024 {
+        return Err("image too large".into());
+    }
+    if !mime.starts_with("image/") {
+        return Err("not an image".into());
+    }
+    Ok(format!(
+        "data:{mime};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(&bytes)
+    ))
 }
 
 // ---- clipboard ----

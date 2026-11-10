@@ -145,6 +145,7 @@ pub fn run() {
             commands::media_lookup,
             commands::media_search,
             commands::media_info_cached,
+            commands::fetch_data_url,
             commands::clipboard_list,
             commands::clipboard_reveal,
             commands::clipboard_copy,

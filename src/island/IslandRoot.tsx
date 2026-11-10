@@ -74,9 +74,63 @@ export const IslandContext = createContext<IslandCtx>({
 export const useIsland = () => useContext(IslandContext);
 
 /**
- * SMTC artwork cache keyed by media key, plus an average-color tint for the
- * pill underglow (computed off a 1×1 canvas sample of the art).
+ * Sample a data-URL image for its dominant VIVID color: 16×16 downscale,
+ * average only the saturated-enough pixels. Covers that are mostly black
+ * with colored text (TV posters) still yield their accent color, while a
+ * global 1×1 average would read as desaturated grey. Grey art yields null
+ * (bars fall back to the accent color).
  */
+function sampleTint(dataUrl: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const N = 16;
+        const c = document.createElement("canvas");
+        c.width = N;
+        c.height = N;
+        const ctx = c.getContext("2d");
+        if (!ctx) return resolve(null);
+        ctx.drawImage(img, 0, 0, N, N);
+        const d = ctx.getImageData(0, 0, N, N).data;
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let n = 0;
+        for (let i = 0; i < N * N; i++) {
+          const R = d[i * 4];
+          const G = d[i * 4 + 1];
+          const B = d[i * 4 + 2];
+          const mx = Math.max(R, G, B);
+          const mn = Math.min(R, G, B);
+          const s = mx === 0 ? 0 : (mx - mn) / mx;
+          if (s >= 0.25 && mx > 40) {
+            r += R;
+            g += G;
+            b += B;
+            n++;
+          }
+        }
+        if (n < 4) return resolve(null);
+        const ar = r / n;
+        const ag = g / n;
+        const ab = b / n;
+        const mx = Math.max(ar, ag, ab);
+        const mn = Math.min(ar, ag, ab);
+        const sat = mx === 0 ? 0 : (mx - mn) / mx;
+        if (sat < 0.18) return resolve(null);
+        const mix = (v: number) => Math.round(v + (255 - v) * 0.35);
+        resolve(`rgb(${mix(ar)}, ${mix(ag)}, ${mix(ab)})`);
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+/** SMTC artwork cache keyed by media key; tint sampled from the art. */
 function useArtCache(media: MediaState | null) {
   const cache = useRef(new Map<string, string>());
   const [url, setUrl] = useState<string | null>(null);
@@ -95,33 +149,13 @@ function useArtCache(media: MediaState | null) {
       setTint(null);
       return;
     }
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const c = document.createElement("canvas");
-        c.width = 1;
-        c.height = 1;
-        const ctx = c.getContext("2d");
-        if (!ctx) return;
-        ctx.drawImage(img, 0, 0, 1, 1);
-        const d = ctx.getImageData(0, 0, 1, 1).data;
-        // Only glow when the art is actually COLORFUL — a dark/grey cover
-        // would render the underglow as a stray grey line.
-        const max = Math.max(d[0], d[1], d[2]);
-        const min = Math.min(d[0], d[1], d[2]);
-        const sat = max === 0 ? 0 : (max - min) / max;
-        if (sat < 0.18) {
-          setTint(null);
-          return;
-        }
-        // Lift dark art so the underglow stays visible.
-        const mix = (v: number) => Math.round(v + (255 - v) * 0.45);
-        setTint(`rgb(${mix(d[0])}, ${mix(d[1])}, ${mix(d[2])})`);
-      } catch {
-        /* canvas unavailable */
-      }
+    let cancelled = false;
+    sampleTint(u).then((t) => {
+      if (!cancelled) setTint(t);
+    });
+    return () => {
+      cancelled = true;
     };
-    img.src = u;
   }, [media?.artKey, media?.artB64]);
 
   return { url, tint };
@@ -332,13 +366,47 @@ export default function IslandRoot() {
   }, [mode, collapse]);
 
   const ctx: IslandCtx = { settings, update, media, timers };
-  const { url: smtcArt, tint } = useArtCache(media);
+  const { url: smtcArt, tint: smtcTint } = useArtCache(media);
 
   // Artwork: SMTC art first; the looked-up TV/movie poster is a graceful
   // fallback for local players that expose no thumbnail.
   const posterForTrack =
     media && info && info.key === media.artKey ? info.poster : null;
   const art = smtcArt ?? posterForTrack;
+
+  // Tint follows whatever artwork is DISPLAYED: SMTC art is sampled in the
+  // hook; the poster is fetched through Rust as a data URL so the canvas
+  // sample isn't CORS-tainted on remote images.
+  const [posterTint, setPosterTint] = useState<string | null>(null);
+  const posterTintCache = useRef(new Map<string, string>());
+  useEffect(() => {
+    if (!posterForTrack || smtcArt) {
+      setPosterTint(null);
+      return;
+    }
+    const cached = posterTintCache.current.get(posterForTrack);
+    if (cached !== undefined) {
+      setPosterTint(cached || null);
+      return;
+    }
+    let cancelled = false;
+    api
+      .fetchDataUrl(posterForTrack)
+      .then((dataUrl) => {
+        if (cancelled || !dataUrl) return;
+        posterTintCache.current.set(posterForTrack, ""); // dedupe in-flight
+        return sampleTint(dataUrl).then((t) => {
+          if (cancelled) return;
+          if (t) posterTintCache.current.set(posterForTrack, t);
+          setPosterTint(t);
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [posterForTrack, smtcArt]);
+  const tint = smtcArt ? smtcTint : posterTint;
   const tintLive = media?.status === "playing" && tint ? tint : null;
 
   if (fsHidden) {
