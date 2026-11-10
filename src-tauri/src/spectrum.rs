@@ -81,6 +81,7 @@ fn run(app: &tauri::AppHandle) -> windows::core::Result<()> {
         let mut acc: Vec<f32> = Vec::with_capacity(FFT_SIZE * 8);
         let mut last_packet: Instant = Instant::now();
         let mut silence_emitted = true;
+        let mut agc_peak = 5e-4f32;
 
         loop {
             std::thread::sleep(Duration::from_millis(12));
@@ -121,7 +122,7 @@ fn run(app: &tauri::AppHandle) -> windows::core::Result<()> {
 
             // Emit when we have a full window.
             while acc.len() >= FFT_SIZE {
-                let bands = compute_bands(&acc[..FFT_SIZE], sample_rate);
+                let bands = compute_bands(&acc[..FFT_SIZE], sample_rate, &mut agc_peak);
                 events::emit(app, ev::SPECTRUM, &bands);
                 acc.drain(..FFT_SIZE / 2); // 50% overlap keeps bars smooth
             }
@@ -153,8 +154,11 @@ fn push_mono(acc: &mut Vec<f32>, samples: &[f32], channels: usize) {
     }
 }
 
-/// Hann window + iterative radix-2 FFT, then log-spaced band magnitudes.
-fn compute_bands(samples: &[f32], sample_rate: f32) -> [f32; BANDS] {
+/// Hann window + iterative radix-2 FFT, then log-spaced band magnitudes,
+/// normalized by an auto-gain peak (instant attack, ~2.5 s release) so the
+/// bars show relative dynamics and can never pin flat at maximum — the
+/// absolute-dB window tried first saturated on ordinary music.
+fn compute_bands(samples: &[f32], sample_rate: f32, agc_peak: &mut f32) -> [f32; BANDS] {
     let mut re = [0f32; FFT_SIZE];
     let mut im = [0f32; FFT_SIZE];
     for i in 0..FFT_SIZE {
@@ -208,6 +212,7 @@ fn compute_bands(samples: &[f32], sample_rate: f32) -> [f32; BANDS] {
     let nyquist = sample_rate / 2.0;
     let bins = FFT_SIZE / 2;
     let mut out = [0f32; BANDS];
+    let mut raw = [0f32; BANDS];
     let mut lo = 0usize;
     for b in 0..BANDS {
         let hi_f = F_MIN * (F_MAX / F_MIN).powf((b + 1) as f32 / BANDS as f32);
@@ -222,14 +227,29 @@ fn compute_bands(samples: &[f32], sample_rate: f32) -> [f32; BANDS] {
         for k in lo..hi {
             sum += (re[k] * re[k] + im[k] * im[k]).sqrt();
         }
-        let mag = sum / (hi - lo) as f32;
-        // Proven mapping from the Electron helper: tilt + dB window + curve.
-        let db = 20.0 * mag.max(1e-9).log10() + b as f32 * 0.32;
-        out[b] = (((db + 58.0) / 48.0).clamp(0.0, 1.0)).powf(0.85);
+        raw[b] = sum / (hi - lo) as f32;
         lo = hi;
         if lo >= bins {
             break;
         }
+    }
+
+    // Tilt lifts the highs (music has far less high-frequency energy), then
+    // normalize against the running peak.
+    let tilted = |b: usize| raw[b] * (1.0 + b as f32 * 0.045);
+    let frame_peak = (0..BANDS).map(tilted).fold(0f32, f32::max);
+    if frame_peak < 5e-4 {
+        *agc_peak = (*agc_peak * 0.9).max(5e-4);
+        return out; // silence
+    }
+    if frame_peak > *agc_peak {
+        *agc_peak = frame_peak; // instant attack
+    } else {
+        *agc_peak *= 0.99; // ~2.8 s half-life at ~25 emits/s
+    }
+    let peak = *agc_peak;
+    for b in 0..BANDS {
+        out[b] = (tilted(b) / peak).clamp(0.0, 1.0).powf(0.85);
     }
     out
 }
@@ -238,33 +258,71 @@ fn compute_bands(samples: &[f32], sample_rate: f32) -> [f32; BANDS] {
 mod tests {
     use super::*;
 
+    fn tone(freq: f32) -> [f32; FFT_SIZE] {
+        let mut s = [0f32; FFT_SIZE];
+        for (i, v) in s.iter_mut().enumerate() {
+            *v = (2.0 * PI * freq * i as f32 / 48000.0).sin();
+        }
+        s
+    }
+
     #[test]
     fn silence_gives_zero_bands() {
-        let out = compute_bands(&[0f32; FFT_SIZE], 48000.0);
+        let mut agc = 5e-4f32;
+        let out = compute_bands(&[0f32; FFT_SIZE], 48000.0, &mut agc);
         assert!(out.iter().all(|v| *v < 0.01));
     }
 
     #[test]
-    fn loud_low_tone_lights_low_bands() {
-        // 100 Hz sine at full scale.
-        let mut s = [0f32; FFT_SIZE];
-        for (i, v) in s.iter_mut().enumerate() {
-            *v = (2.0 * PI * 100.0 * i as f32 / 48000.0).sin();
-        }
-        let out = compute_bands(&s, 48000.0);
-        let low = out[..4].iter().sum::<f32>() / 4.0;
-        let high = out[20..].iter().sum::<f32>() / 4.0;
-        assert!(low > 0.2, "low bands should react, low={low}");
-        assert!(low > high, "energy should concentrate in low bands");
+    fn tone_concentrates_in_low_bands() {
+        let mut agc = 5e-4f32;
+        let out = compute_bands(&tone(100.0), 48000.0, &mut agc);
+        let peak = out.iter().cloned().fold(0f32, f32::max);
+        assert!(peak > 0.5, "peak band should react, peak={peak}");
+        let low: f32 = out[..12].iter().sum();
+        let high: f32 = out[12..].iter().sum();
+        assert!(low > high, "energy should sit in the low half: low={low} high={high}");
     }
 
     #[test]
     fn bands_are_normalized() {
-        let mut s = [0f32; FFT_SIZE];
-        for (i, v) in s.iter_mut().enumerate() {
-            *v = (2.0 * PI * 440.0 * i as f32 / 48000.0).sin();
-        }
-        let out = compute_bands(&s, 48000.0);
+        let mut agc = 5e-4f32;
+        let out = compute_bands(&tone(440.0), 48000.0, &mut agc);
         assert!(out.iter().all(|v| (0.0..=1.0).contains(v)));
+    }
+
+    /// The bug the user reported: every bar pinned at max. A single tone must
+    /// light only its neighborhood, never the whole spectrum.
+    #[test]
+    fn never_saturates_everything() {
+        let mut agc = 5e-4f32;
+        let out = compute_bands(&tone(220.0), 48000.0, &mut agc);
+        let maxed = out.iter().filter(|v| **v > 0.9).count();
+        assert!(maxed < 8, "too many saturated bands: {maxed}");
+    }
+
+    /// AGC dynamics: a quiet passage right after a loud one must not stay
+    /// pinned (no saturation) and must visibly recover within a few seconds.
+    #[test]
+    fn agc_recovers_after_quiet() {
+        let mut agc = 5e-4f32;
+        let _ = compute_bands(&tone(220.0), 48000.0, &mut agc); // loud → peak set
+        let mut quiet = tone(220.0);
+        for v in quiet.iter_mut() {
+            *v *= 0.05;
+        }
+        let first = compute_bands(&quiet, 48000.0, &mut agc);
+        let first_peak = first.iter().cloned().fold(0f32, f32::max);
+        assert!(first_peak < 0.2, "quiet must not instantly max: {first_peak}");
+        let mut out = first;
+        for _ in 0..200 {
+            out = compute_bands(&quiet, 48000.0, &mut agc);
+        }
+        let recovered = out.iter().cloned().fold(0f32, f32::max);
+        assert!(
+            recovered > 0.3,
+            "AGC should recover within ~8 s: {recovered}"
+        );
+        assert!(recovered <= 1.0);
     }
 }

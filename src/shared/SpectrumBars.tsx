@@ -4,8 +4,12 @@ import * as api from "./api";
 /**
  * Audio spectrum bars fed by the WASAPI loopback analyzer (audio:spectrum).
  * Updates bar heights imperatively — no React re-renders at ~25 Hz. Fades
- * itself out when nothing is playing.
+ * itself out when nothing is playing. The backend sends 24 bands; a bar
+ * count lower than 24 samples them spread across the whole spectrum
+ * (otherwise the pill would show only bass).
  */
+const SOURCE_BANDS = 24;
+
 export default function SpectrumBars({
   bands = 24,
   height = 34,
@@ -26,7 +30,7 @@ export default function SpectrumBars({
       for (let i = 0; i < bands; i++) {
         const el = refs.current[i];
         if (!el) continue;
-        const v = data[i] ?? 0;
+        const v = data[Math.round((i * (SOURCE_BANDS - 1)) / (bands - 1))] ?? 0;
         energy += v;
         const h = Math.max(2, Math.round(v * height));
         el.style.height = `${h}px`;
