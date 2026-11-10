@@ -152,21 +152,6 @@ body,
   overflow: hidden;
 }
 
-/* Album-color underglow while media plays (set via --media-tint). */
-.pill::after {
-  content: "";
-  position: absolute;
-  left: 20px;
-  right: 20px;
-  bottom: 5px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--media-tint, transparent);
-  opacity: 0.65;
-  transition: opacity 400ms ease;
-  pointer-events: none;
-}
-
 .pill:active {
   transform: scale(0.985);
   transition: transform 80ms ease;
@@ -353,8 +338,7 @@ body,
 @media (prefers-reduced-motion: reduce) {
   .pill-attention,
   .timer-dot,
-  .bt-in,
-  .pill::after {
+  .bt-in {
     animation: none;
     transition: none;
   }
