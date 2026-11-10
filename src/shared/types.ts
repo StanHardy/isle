@@ -115,12 +115,15 @@ export interface CityRef {
 
 export type TempUnit = "metric" | "imperial";
 export type WindUnit = "kmh" | "mph";
+export type SpectrumStyle = "accent" | "white" | "gradient" | "tint" | "mono";
+export type IslandDesign = "pill" | "notch" | "black" | "clear";
 export type ExpandMode = "hover" | "click";
 export type Theme = "system" | "dark" | "light";
 
 export interface Settings {
   version: number;
   islandScale: number;
+  islandDesign: IslandDesign;
   expandMode: ExpandMode;
   theme: Theme;
   hideFullscreen: boolean;
@@ -135,6 +138,8 @@ export interface Settings {
   lyricsEnabled: boolean;
   /** Auto-lookup TV/movie info for video-looking media. */
   mediaInfoAuto: boolean;
+  /** Spectrum bar color theme. */
+  spectrumStyle: SpectrumStyle;
   clipboardEnabled: boolean;
   clipboardKeep: number;
   notificationsEnabled: boolean;

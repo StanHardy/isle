@@ -30,6 +30,21 @@ const EXPANDED = { w: 424, h: 580 };
 const TOP_OFFSET = 10;
 const RADIUS = { compact: 28, expanded: 24 };
 
+/**
+ * Compact geometry per island design. The notch hangs from the screen edge:
+ * its window top is pushed above the screen by the corner radius, so the
+ * uniform rounded region shows only the bottom corners.
+ */
+const DESIGN_METRICS: Record<
+  string,
+  { w: number; h: number; yOff: number; radius: number }
+> = {
+  pill: { w: 348, h: 56, yOff: TOP_OFFSET, radius: 28 },
+  notch: { w: 360, h: 80, yOff: -24, radius: 24 },
+  black: { w: 348, h: 56, yOff: TOP_OFFSET, radius: 28 },
+  clear: { w: 348, h: 56, yOff: TOP_OFFSET, radius: 28 },
+};
+
 type Mode = "compact" | "expanded";
 
 /** Bento layout: wide cards span both columns, narrow cards pair up. */
@@ -90,6 +105,15 @@ function useArtCache(media: MediaState | null) {
         if (!ctx) return;
         ctx.drawImage(img, 0, 0, 1, 1);
         const d = ctx.getImageData(0, 0, 1, 1).data;
+        // Only glow when the art is actually COLORFUL — a dark/grey cover
+        // would render the underglow as a stray grey line.
+        const max = Math.max(d[0], d[1], d[2]);
+        const min = Math.min(d[0], d[1], d[2]);
+        const sat = max === 0 ? 0 : (max - min) / max;
+        if (sat < 0.18) {
+          setTint(null);
+          return;
+        }
         // Lift dark art so the underglow stays visible.
         const mix = (v: number) => Math.round(v + (255 - v) * 0.45);
         setTint(`rgb(${mix(d[0])}, ${mix(d[1])}, ${mix(d[2])})`);
@@ -231,11 +255,14 @@ export default function IslandRoot() {
 
   // Window frame follows the springs; centered on the primary work area.
   useEffect(() => {
-    const targetW = (mode === "compact" ? COMPACT.w : EXPANDED.w) * (settings?.islandScale ?? 1);
-    const targetH = (mode === "compact" ? COMPACT.h : EXPANDED.h) * (settings?.islandScale ?? 1);
+    const design = DESIGN_METRICS[settings?.islandDesign ?? "pill"] ?? DESIGN_METRICS.pill;
+    const compact = mode === "compact";
+    const targetW = (compact ? design.w : EXPANDED.w) * (settings?.islandScale ?? 1);
+    const targetH = (compact ? design.h : EXPANDED.h) * (settings?.islandScale ?? 1);
     wSpring.current.set(targetW);
     hSpring.current.set(targetH);
-    const radius = mode === "compact" ? RADIUS.compact : RADIUS.expanded;
+    const radius = compact ? design.radius : RADIUS.expanded;
+    const yOff = compact ? design.yOff : TOP_OFFSET;
 
     const writeFrame = () => {
       const a = anchor;
@@ -244,7 +271,7 @@ export default function IslandRoot() {
       const w = wSpring.current.value;
       const h = hSpring.current.value;
       const x = a.x / scale + (a.width / scale - w) / 2;
-      const y = a.y / scale + TOP_OFFSET;
+      const y = a.y / scale + yOff;
       api.islandSetFrame(x, y, w, h, radius).catch(() => {});
     };
 
@@ -269,7 +296,7 @@ export default function IslandRoot() {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [mode, settings?.islandScale, anchor]);
+  }, [mode, settings?.islandScale, settings?.islandDesign, anchor]);
 
   const activeTimer = timers.find((t) => !t.paused);
   const pillKind = useMemo(() => {
@@ -354,6 +381,7 @@ export default function IslandRoot() {
         onMouseEnter={onPillEnter}
         onMouseLeave={onPillLeave}
         data-expanded={mode === "expanded"}
+        data-design={settings?.islandDesign ?? "pill"}
       >
         {mode === "compact" ? (
           <button
@@ -408,7 +436,12 @@ export default function IslandRoot() {
             </div>
             <div className="pill-right" aria-hidden="true">
               {pillKind !== "clock" && (
-                <SpectrumBars bands={10} height={14} color={tintLive} />
+                <SpectrumBars
+                  bands={10}
+                  height={14}
+                  variant={settings?.spectrumStyle ?? "accent"}
+                  tint={tintLive}
+                />
               )}
               {pillKind !== "clock" && (
                 <span className="pill-mini-time">

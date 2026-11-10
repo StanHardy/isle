@@ -93,6 +93,26 @@ export default function SettingsApp() {
             <Section title="Behavior">
               <label className="setting-row">
                 <span className="setting-text">
+                  <span className="setting-label">Island design</span>
+                  <span className="setting-hint">
+                    Pill: floating glass capsule · Notch: opaque, anchored to the screen edge ·
+                    Black / Clear: Droppy-style material variants
+                  </span>
+                </span>
+                <select
+                  value={settings.islandDesign}
+                  onChange={(e) =>
+                    update({ islandDesign: e.target.value as SettingsType["islandDesign"] })
+                  }
+                >
+                  <option value="pill">Pill</option>
+                  <option value="notch">Notch</option>
+                  <option value="black">Black</option>
+                  <option value="clear">Clear</option>
+                </select>
+              </label>
+              <label className="setting-row">
+                <span className="setting-text">
                   <span className="setting-label">Expand on</span>
                   <span className="setting-hint">Hover dwell or explicit click</span>
                 </span>
@@ -217,6 +237,26 @@ export default function SettingsApp() {
                 checked={settings.mediaInfoAuto}
                 onChange={(v) => update({ mediaInfoAuto: v })}
               />
+              <label className="setting-row">
+                <span className="setting-text">
+                  <span className="setting-label">Spectrum style</span>
+                  <span className="setting-hint">
+                    Bar colors: app accent, white, rainbow gradient, album tint, or muted mono
+                  </span>
+                </span>
+                <select
+                  value={settings.spectrumStyle}
+                  onChange={(e) =>
+                    update({ spectrumStyle: e.target.value as SettingsType["spectrumStyle"] })
+                  }
+                >
+                  <option value="accent">Accent</option>
+                  <option value="white">White</option>
+                  <option value="gradient">Gradient</option>
+                  <option value="tint">Album tint</option>
+                  <option value="mono">Mono</option>
+                </select>
+              </label>
               <Toggle
                 label="System metrics"
                 hint="CPU, memory and network sampling while the panel is open"

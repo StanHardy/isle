@@ -9,7 +9,7 @@ import { useIsland } from "../IslandRoot";
  * seek API, so there is no scrubber).
  */
 export default function MediaModule({ art, tint }: { art: string | null; tint: string | null }) {
-  const { media } = useIsland();
+  const { media, settings } = useIsland();
   const [pos, setPos] = useState(0);
   const baseRef = useRef<{ ms: number; at: number; playing: boolean }>({
     ms: 0,
@@ -68,14 +68,24 @@ export default function MediaModule({ art, tint }: { art: string | null; tint: s
           {media.album && <div className="media-album">{media.album}</div>}
         </div>
       </div>
-      <div className="media-progress" role="timer" aria-label="Playback progress">
+      <div
+        className="media-progress"
+        role="timer"
+        aria-label="Playback progress"
+        title="Seeking is not supported — Windows SMTC has no remote seek API"
+      >
         <span className="progress-time">{fmt(shown)}</span>
         <div className="progress-bar">
           <div className="progress-fill" style={{ width: `${pct}%` }} />
         </div>
         <span className="progress-time">{fmt(media.durationMs)}</span>
       </div>
-      <SpectrumBars bands={24} height={36} color={tint} />
+      <SpectrumBars
+        bands={24}
+        height={36}
+        variant={settings?.spectrumStyle ?? "accent"}
+        tint={tint}
+      />
       <div className="media-controls">
         <button
           type="button"

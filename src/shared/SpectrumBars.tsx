@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import * as api from "./api";
 
+export type SpectrumVariant = "accent" | "white" | "gradient" | "tint" | "mono";
+
 /**
  * Audio spectrum bars fed by the WASAPI loopback analyzer (audio:spectrum).
  * Updates bar heights imperatively — no React re-renders at ~25 Hz. Fades
@@ -13,15 +15,32 @@ const SOURCE_BANDS = 24;
 export default function SpectrumBars({
   bands = 24,
   height = 34,
-  color,
+  variant = "accent",
+  tint,
 }: {
   bands?: number;
   height?: number;
-  color?: string | null;
+  variant?: SpectrumVariant;
+  tint?: string | null;
 }) {
   const refs = useRef<(HTMLSpanElement | null)[]>([]);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const visibleRef = useRef(false);
+
+  const barColor = (i: number): string => {
+    switch (variant) {
+      case "white":
+        return "rgba(255, 255, 255, 0.9)";
+      case "gradient":
+        return `hsl(${190 + Math.round((i / bands) * 130)}, 85%, 62%)`;
+      case "tint":
+        return tint ?? "var(--accent)";
+      case "mono":
+        return "rgba(255, 255, 255, 0.55)";
+      default:
+        return "var(--accent)";
+    }
+  };
 
   useEffect(() => {
     const un = api.listen<number[]>(api.ev.SPECTRUM, (e) => {
@@ -61,7 +80,7 @@ export default function SpectrumBars({
             refs.current[i] = el;
           }}
           className="spec-bar"
-          style={color ? { background: color } : undefined}
+          style={{ background: barColor(i) }}
         />
       ))}
     </div>

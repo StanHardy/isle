@@ -45,6 +45,29 @@ pub enum SpeedUnit {
     Mph,
 }
 
+/// Visual style of the spectrum bars.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SpectrumStyle {
+    Accent,
+    White,
+    Gradient,
+    Tint,
+    Mono,
+}
+
+/// Overall island look: floating glass capsule (pill), screen-edge notch
+/// (opaque, hangs from the top, Notchy-style), or Droppy-style material
+/// variants of the capsule (opaque black / clear glass).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IslandDesign {
+    Pill,
+    Notch,
+    Black,
+    Clear,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CityRef {
@@ -59,6 +82,7 @@ pub struct Settings {
     pub version: u32,
     /// User zoom multiplier applied on top of the monitor scale factor.
     pub island_scale: f32,
+    pub island_design: IslandDesign,
     pub expand_mode: ExpandMode,
     pub theme: Theme,
     /// Hide the island while a fullscreen app is in the foreground.
@@ -75,6 +99,8 @@ pub struct Settings {
     pub lyrics_enabled: bool,
     /// Auto-lookup TV/movie info for video-looking media (episode/year titles).
     pub media_info_auto: bool,
+    /// Spectrum bar color theme.
+    pub spectrum_style: SpectrumStyle,
     /// Opt-in clipboard history (privacy-sensitive).
     pub clipboard_enabled: bool,
     /// Bounded local retention for clipboard history.
@@ -96,6 +122,7 @@ impl Default for Settings {
         Self {
             version: 1,
             island_scale: 1.0,
+            island_design: IslandDesign::Pill,
             expand_mode: ExpandMode::Hover,
             theme: Theme::System,
             hide_fullscreen: true,
@@ -128,6 +155,7 @@ impl Default for Settings {
             wind_unit: SpeedUnit::Mph,
             lyrics_enabled: true,
             media_info_auto: true,
+            spectrum_style: SpectrumStyle::Accent,
             clipboard_enabled: false,
             clipboard_keep: 100,
             notifications_enabled: false,
@@ -211,6 +239,7 @@ pub fn generate_token() -> String {
 pub const DEFAULT_SETTINGS_JSON: &str = r#"{
   "version": 1,
   "islandScale": 1.0,
+  "islandDesign": "pill",
   "expandMode": "hover",
   "theme": "system",
   "hideFullscreen": true,
@@ -234,6 +263,7 @@ pub const DEFAULT_SETTINGS_JSON: &str = r#"{
   "windUnit": "mph",
   "lyricsEnabled": true,
   "mediaInfoAuto": true,
+  "spectrumStyle": "accent",
   "clipboardEnabled": false,
   "clipboardKeep": 100,
   "notificationsEnabled": false,

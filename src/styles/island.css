@@ -99,6 +99,37 @@ body,
   pointer-events: none;
 }
 
+/* ---------- island design variants ---------- */
+
+/* Droppy-style opaque black */
+.island-root[data-design="black"] .pill,
+.island-root[data-design="black"] .panel {
+  background: #0b0b0e;
+  backdrop-filter: none;
+}
+
+.island-root[data-design="black"] .card {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Droppy-style clear glass */
+.island-root[data-design="clear"] .pill,
+.island-root[data-design="clear"] .panel {
+  background: rgba(14, 14, 20, 0.32);
+  backdrop-filter: blur(44px) saturate(1.7);
+}
+
+/* Notchy-style notch: opaque, anchored to the screen edge (window top is
+   pushed above the screen by the region radius; content is padded below). */
+.island-root[data-design="notch"] .pill {
+  border-radius: 0 0 22px 22px;
+  border-top: none;
+  background: #0b0b0e;
+  backdrop-filter: none;
+  padding-top: 24px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55);
+}
+
 /* ---------- compact pill ---------- */
 
 .pill {
@@ -544,6 +575,7 @@ button:focus-visible {
   align-items: center;
   gap: 8px;
   margin-top: 10px;
+  cursor: default;
 }
 
 .progress-time {

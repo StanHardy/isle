@@ -129,17 +129,25 @@ pub fn apply_round_region(win: &tauri::WebviewWindow, radius: f64) {
 }
 
 /// Place the island at top-center of the primary work area in compact size.
+/// Design-aware: the notch hangs FROM the screen edge (window top pushed
+/// above the screen so the uniform rounded region shows only bottom corners).
 pub fn position_compact(app: &AppHandle) {
     if let Some(win) = island(app) {
         let a = anchor(app);
-        let s = user_scale(app);
-        let w = COMPACT_W * s;
-        let h = COMPACT_H * s;
+        let (w, h, off, rad) = {
+            let state: tauri::State<AppState> = app.state();
+            let s = state.settings.read().expect("settings lock");
+            let scale = user_scale(app);
+            match s.island_design {
+                crate::config::IslandDesign::Notch => (360.0 * scale, 80.0 * scale, -24.0, 24.0),
+                _ => (COMPACT_W * scale, COMPACT_H * scale, TOP_OFFSET, COMPACT_RADIUS),
+            }
+        };
         let x = a.x as f64 + ((a.width as f64 - w) / 2.0);
-        let y = a.y as f64 + TOP_OFFSET;
+        let y = a.y as f64 + off;
         let _ = win.set_size(LogicalSize::new(w, h));
         let _ = win.set_position(LogicalPosition::new(x, y));
-        apply_round_region(&win, COMPACT_RADIUS);
+        apply_round_region(&win, rad);
     }
 }
 
