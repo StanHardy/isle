@@ -70,8 +70,10 @@ export default function WeatherModule() {
     }
   };
 
-  const units = settings?.units ?? "metric";
-  const deg = (t: number) => `${Math.round(t)}°${units === "imperial" ? "F" : "C"}`;
+  const tempUnit = settings?.tempUnit ?? "metric";
+  const windUnit = settings?.windUnit ?? "kmh";
+  const deg = (t: number) => `${Math.round(t)}°${tempUnit === "imperial" ? "F" : "C"}`;
+  const windLabel = windUnit === "mph" ? " mph" : " km/h";
   const city = settings?.weatherCity?.name;
 
   return (
@@ -89,7 +91,7 @@ export default function WeatherModule() {
             <span className="weather-temp">{deg(weather.temp)}</span>
             <span className="weather-desc">{describe(weather.code)} · {weather.city}</span>
             <span className="weather-extra muted">
-              {deg(weather.hi)} / {deg(weather.lo)} · wind {Math.round(weather.wind)}{units === "imperial" ? " mph" : " km/h"} · rain {weather.precipProb}%
+              {deg(weather.hi)} / {deg(weather.lo)} · wind {Math.round(weather.wind)}{windLabel} · rain {weather.precipProb}%
             </span>
           </div>
         </div>

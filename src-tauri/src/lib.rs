@@ -158,7 +158,6 @@ pub fn run() {
             commands::providers_clear_tmdb,
             commands::providers_has_tmdb,
             commands::theme_setting,
-            commands::units_setting,
             commands::expand_mode_setting,
         ])
         .setup(|app| {

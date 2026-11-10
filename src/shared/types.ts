@@ -113,7 +113,8 @@ export interface CityRef {
   lon: number;
 }
 
-export type Units = "metric" | "imperial";
+export type TempUnit = "metric" | "imperial";
+export type WindUnit = "kmh" | "mph";
 export type ExpandMode = "hover" | "click";
 export type Theme = "system" | "dark" | "light";
 
@@ -129,7 +130,8 @@ export interface Settings {
   metricsEnabled: boolean;
   weatherEnabled: boolean;
   weatherCity: CityRef | null;
-  units: Units;
+  tempUnit: TempUnit;
+  windUnit: WindUnit;
   lyricsEnabled: boolean;
   /** Auto-lookup TV/movie info for video-looking media. */
   mediaInfoAuto: boolean;

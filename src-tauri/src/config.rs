@@ -32,9 +32,17 @@ pub enum Theme {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Units {
+pub enum TempUnit {
     Metric,
     Imperial,
+}
+
+/// Wind/speed unit is independent of temperature (UK: °C + mph).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SpeedUnit {
+    Kmh,
+    Mph,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,7 +70,8 @@ pub struct Settings {
     pub metrics_enabled: bool,
     pub weather_enabled: bool,
     pub weather_city: Option<CityRef>,
-    pub units: Units,
+    pub temp_unit: TempUnit,
+    pub wind_unit: SpeedUnit,
     pub lyrics_enabled: bool,
     /// Auto-lookup TV/movie info for video-looking media (episode/year titles).
     pub media_info_auto: bool,
@@ -115,7 +124,8 @@ impl Default for Settings {
             metrics_enabled: true,
             weather_enabled: true,
             weather_city: None,
-            units: Units::Metric,
+            temp_unit: TempUnit::Metric,
+            wind_unit: SpeedUnit::Mph,
             lyrics_enabled: true,
             media_info_auto: true,
             clipboard_enabled: false,
@@ -204,7 +214,7 @@ pub const DEFAULT_SETTINGS_JSON: &str = r#"{
   "expandMode": "hover",
   "theme": "system",
   "hideFullscreen": true,
-  "moduleOrder": ["media", "timer", "weather", "metrics", "info", "lyrics", "bluetooth", "notifications", "clipboard"],
+  "moduleOrder": ["media", "info", "timer", "weather", "metrics", "lyrics", "bluetooth", "notifications", "clipboard"],
   "modulesEnabled": {
     "media": true,
     "timer": true,
@@ -220,7 +230,8 @@ pub const DEFAULT_SETTINGS_JSON: &str = r#"{
   "metricsEnabled": true,
   "weatherEnabled": true,
   "weatherCity": null,
-  "units": "metric",
+  "tempUnit": "metric",
+  "windUnit": "mph",
   "lyricsEnabled": true,
   "mediaInfoAuto": true,
   "clipboardEnabled": false,

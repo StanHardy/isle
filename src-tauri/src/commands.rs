@@ -2,7 +2,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::bluetooth;
 use crate::clipboard::{self, ClipEntry};
-use crate::config::{ExpandMode, Settings, Theme, Units};
+use crate::config::{ExpandMode, Settings, Theme};
 use crate::credentials;
 use crate::events::{self, ev};
 use crate::island_window;
@@ -229,15 +229,15 @@ pub async fn weather_geocode(query: String) -> Result<Vec<open_meteo::GeoResult>
 
 #[tauri::command]
 pub async fn weather_refresh(app: AppHandle) -> Result<serde_json::Value, String> {
-    let (city, units) = {
+    let (city, temp_unit, wind_unit) = {
         let state: tauri::State<AppState> = app.state();
         let s = state.settings.read().expect("settings lock");
-        (s.weather_city.clone(), s.units)
+        (s.weather_city.clone(), s.temp_unit, s.wind_unit)
     };
     let Some(city) = city else {
         return Ok(serde_json::json!({ "error": "no city selected" }));
     };
-    match open_meteo::fetch(&city, &units).await {
+    match open_meteo::fetch(&city, &temp_unit, &wind_unit).await {
         Ok(data) => {
             events::emit(&app, ev::WEATHER, &data);
             Ok(serde_json::to_value(&data).expect("weather serialize"))
@@ -468,13 +468,6 @@ pub fn theme_setting(app: AppHandle) -> Theme {
     let state: tauri::State<AppState> = app.state();
     let s = state.settings.read().expect("settings lock");
     s.theme
-}
-
-#[tauri::command]
-pub fn units_setting(app: AppHandle) -> Units {
-    let state: tauri::State<AppState> = app.state();
-    let s = state.settings.read().expect("settings lock");
-    s.units
 }
 
 #[tauri::command]

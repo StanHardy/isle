@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::{CityRef, Units};
+use crate::config::{CityRef, SpeedUnit, TempUnit};
 use crate::events::{self, ev};
 
 const GEO_URL: &str = "https://geocoding-api.open-meteo.com/v1/search";
@@ -115,14 +115,18 @@ pub async fn geocode(query: &str) -> Result<Vec<GeoResult>, String> {
         .collect())
 }
 
-pub async fn fetch(city: &CityRef, units: &Units) -> Result<WeatherData, String> {
-    let temp_unit = match units {
-        Units::Imperial => "fahrenheit",
-        Units::Metric => "celsius",
+pub async fn fetch(
+    city: &CityRef,
+    temp_unit: &TempUnit,
+    wind_unit: &SpeedUnit,
+) -> Result<WeatherData, String> {
+    let temp_unit = match temp_unit {
+        TempUnit::Imperial => "fahrenheit",
+        TempUnit::Metric => "celsius",
     };
-    let wind_unit = match units {
-        Units::Imperial => "mph",
-        Units::Metric => "kmh",
+    let wind_unit = match wind_unit {
+        SpeedUnit::Mph => "mph",
+        SpeedUnit::Kmh => "kmh",
     };
     let resp = client()
         .get(FORECAST_URL)
@@ -177,10 +181,15 @@ pub fn start_service(app: tauri::AppHandle) {
         let mut last = Instant::now() - Duration::from_secs(600);
         loop {
             tokio::time::sleep(Duration::from_secs(30)).await;
-            let (enabled, city, units) = {
+            let (enabled, city, temp_unit, wind_unit) = {
                 let state: tauri::State<crate::state::AppState> = app.state();
                 let s = state.settings.read().expect("settings lock");
-                (s.weather_enabled, s.weather_city.clone(), s.units)
+                (
+                    s.weather_enabled,
+                    s.weather_city.clone(),
+                    s.temp_unit,
+                    s.wind_unit,
+                )
             };
             if !(enabled && city.is_some()) {
                 continue;
@@ -190,7 +199,7 @@ pub fn start_service(app: tauri::AppHandle) {
             }
             last = Instant::now();
             let city = city.expect("city checked above");
-            match fetch(&city, &units).await {
+            match fetch(&city, &temp_unit, &wind_unit).await {
                 Ok(data) => events::emit(&app, ev::WEATHER, &data),
                 Err(err) => events::emit(
                     &app,

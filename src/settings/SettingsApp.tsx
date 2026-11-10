@@ -239,14 +239,26 @@ export default function SettingsApp() {
               />
               <label className="setting-row">
                 <span className="setting-text">
-                  <span className="setting-label">Units</span>
+                  <span className="setting-label">Temperature</span>
                 </span>
                 <select
-                  value={settings.units}
-                  onChange={(e) => update({ units: e.target.value as SettingsType["units"] })}
+                  value={settings.tempUnit}
+                  onChange={(e) => update({ tempUnit: e.target.value as SettingsType["tempUnit"] })}
                 >
-                  <option value="metric">Celsius / km/h</option>
-                  <option value="imperial">Fahrenheit / mph</option>
+                  <option value="metric">Celsius</option>
+                  <option value="imperial">Fahrenheit</option>
+                </select>
+              </label>
+              <label className="setting-row">
+                <span className="setting-text">
+                  <span className="setting-label">Wind speed</span>
+                </span>
+                <select
+                  value={settings.windUnit}
+                  onChange={(e) => update({ windUnit: e.target.value as SettingsType["windUnit"] })}
+                >
+                  <option value="kmh">km/h</option>
+                  <option value="mph">mph</option>
                 </select>
               </label>
               <div className="setting-row">

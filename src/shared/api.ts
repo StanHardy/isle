@@ -14,7 +14,6 @@ import type {
   Settings,
   Theme,
   Timer,
-  Units,
   WeatherData,
 } from "./types";
 
@@ -48,7 +47,6 @@ export const settingsGet = () => invoke<Settings>("settings_get");
 export const settingsUpdate = (patch: Partial<Settings>) =>
   invoke<Settings>("settings_update", { patch });
 export const themeSetting = () => invoke<Theme>("theme_setting");
-export const unitsSetting = () => invoke<Units>("units_setting");
 export const expandModeSetting = () => invoke<ExpandMode>("expand_mode_setting");
 
 // ---- media ----
