@@ -15,10 +15,11 @@ use crate::timers::{self, Timer};
 // ---- island window ----
 
 #[tauri::command]
-pub fn island_set_frame(app: AppHandle, x: f64, y: f64, w: f64, h: f64) {
+pub fn island_set_frame(app: AppHandle, x: f64, y: f64, w: f64, h: f64, radius: f64) {
     if let Some(win) = island_window::island(&app) {
         let _ = win.set_size(tauri::LogicalSize::new(w.max(40.0), h.max(20.0)));
         let _ = win.set_position(tauri::LogicalPosition::new(x, y));
+        island_window::apply_round_region(&win, radius);
     }
 }
 

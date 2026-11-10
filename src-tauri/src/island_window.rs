@@ -2,10 +2,12 @@ use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, WebviewUrl, WebviewWindowBuilder};
+use windows::Win32::Graphics::Gdi::{CreateRoundRectRgn, SetWindowRgn};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, SystemParametersInfoW, GWL_EXSTYLE,
-    HWND_TOPMOST, SPI_GETWORKAREA, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, WINDOW_EX_STYLE,
-    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
+    GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, SystemParametersInfoW,
+    GWL_EXSTYLE, HWND_TOPMOST, SPI_GETWORKAREA, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+    SWP_SHOWWINDOW, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, WINDOW_EX_STYLE, WS_EX_NOACTIVATE,
+    WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
 };
 
 use crate::events::{self, ev};
@@ -15,11 +17,11 @@ const ISLAND_LABEL: &str = "island";
 const SETTINGS_LABEL: &str = "settings";
 
 /// Compact pill size in logical units (before scale factor and user zoom).
-pub const COMPACT_W: f64 = 344.0;
-pub const COMPACT_H: f64 = 60.0;
-/// Expanded panel size in logical units.
-pub const EXPANDED_W: f64 = 396.0;
-pub const EXPANDED_H: f64 = 560.0;
+pub const COMPACT_W: f64 = 348.0;
+pub const COMPACT_H: f64 = 56.0;
+/// Corner radius in logical units (compact pill / expanded panel).
+pub const COMPACT_RADIUS: f64 = 28.0;
+pub const EXPANDED_RADIUS: f64 = 24.0;
 /// Gap between the top of the work area and the island, logical units.
 pub const TOP_OFFSET: f64 = 10.0;
 
@@ -87,6 +89,7 @@ pub fn create(app: &AppHandle) -> Result<(), tauri::Error> {
         })
         .build()?;
     apply_ex_style(&win, true);
+    apply_round_region(&win, COMPACT_RADIUS);
     position_compact(app);
     Ok(())
 }
@@ -108,6 +111,23 @@ pub fn create_settings(app: &AppHandle) -> Result<(), tauri::Error> {
     Ok(())
 }
 
+/// Clip the window to a rounded rect so the island can never show square
+/// corners, regardless of webview rendering state. The system owns the
+/// region after SetWindowRgn; re-apply whenever the size changes.
+pub fn apply_round_region(win: &tauri::WebviewWindow, radius: f64) {
+    let Ok(hwnd) = win.hwnd() else { return };
+    let Ok(scale) = win.scale_factor() else { return };
+    let Ok(size) = win.outer_size() else { return };
+    let r = ((radius * scale).round() as i32).max(2);
+    unsafe {
+        let hrgn = CreateRoundRectRgn(0, 0, size.width as i32 + 1, size.height as i32 + 1, r * 2, r * 2);
+        if !hrgn.is_invalid() {
+            // SetWindowRgn takes ownership of the region (system deletes it).
+            SetWindowRgn(hwnd, Some(hrgn), true);
+        }
+    }
+}
+
 /// Place the island at top-center of the primary work area in compact size.
 pub fn position_compact(app: &AppHandle) {
     if let Some(win) = island(app) {
@@ -119,6 +139,7 @@ pub fn position_compact(app: &AppHandle) {
         let y = a.y as f64 + TOP_OFFSET;
         let _ = win.set_size(LogicalSize::new(w, h));
         let _ = win.set_position(LogicalPosition::new(x, y));
+        apply_round_region(&win, COMPACT_RADIUS);
     }
 }
 

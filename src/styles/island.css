@@ -1,35 +1,59 @@
-/* Isle island — Fluent-inspired dark glass, system-theme aware. */
+/* Isle island — Fluent-inspired dark glass.
+ *
+ * Design language synthesized from peer island apps (visual principles only):
+ * deep near-black glass with hairline borders and a top rim light, two-layer
+ * shadows (contact + ambient), bento card grid, album-color underglow while
+ * playing, and a single restrained accent reserved for the play button and
+ * media progress. Mono numerals for telemetry.
+ */
 
 :root {
   --accent: #4cc2ff;
-  --bg: rgba(24, 24, 30, 0.92);
-  --bg-card: rgba(255, 255, 255, 0.045);
-  --bg-card-hover: rgba(255, 255, 255, 0.08);
-  --stroke: rgba(255, 255, 255, 0.09);
+  --bg: rgba(18, 18, 23, 0.86);
+  --bg-card: rgba(255, 255, 255, 0.05);
+  --bg-card-hover: rgba(255, 255, 255, 0.09);
+  --stroke: rgba(255, 255, 255, 0.08);
+  --stroke-strong: rgba(255, 255, 255, 0.16);
+  --rim: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --shadow:
+    0 1px 2px rgba(0, 0, 0, 0.55),
+    0 14px 40px rgba(0, 0, 0, 0.5);
   --text: #f3f3f6;
-  --text-muted: rgba(243, 243, 246, 0.62);
+  --text-muted: rgba(243, 243, 246, 0.6);
   --danger: #ff8a8a;
   --radius-pill: 28px;
-  --radius-panel: 22px;
+  --radius-panel: 24px;
+  --radius-card: 16px;
+  --mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
 }
 
 .theme-light {
-  --bg: rgba(248, 248, 252, 0.94);
+  --bg: rgba(248, 248, 252, 0.92);
   --bg-card: rgba(0, 0, 0, 0.04);
-  --bg-card-hover: rgba(0, 0, 0, 0.07);
+  --bg-card-hover: rgba(0, 0, 0, 0.08);
   --stroke: rgba(0, 0, 0, 0.1);
+  --stroke-strong: rgba(0, 0, 0, 0.18);
+  --rim: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   --text: #1a1a20;
   --text-muted: rgba(26, 26, 32, 0.6);
+  --shadow:
+    0 1px 2px rgba(0, 0, 0, 0.18),
+    0 14px 40px rgba(0, 0, 0, 0.22);
 }
 
 @media (prefers-color-scheme: light) {
   .island-root.theme-system {
-    --bg: rgba(248, 248, 252, 0.94);
+    --bg: rgba(248, 248, 252, 0.92);
     --bg-card: rgba(0, 0, 0, 0.04);
-    --bg-card-hover: rgba(0, 0, 0, 0.07);
+    --bg-card-hover: rgba(0, 0, 0, 0.08);
     --stroke: rgba(0, 0, 0, 0.1);
+    --stroke-strong: rgba(0, 0, 0, 0.18);
+    --rim: inset 0 1px 0 rgba(255, 255, 255, 0.7);
     --text: #1a1a20;
     --text-muted: rgba(26, 26, 32, 0.6);
+    --shadow:
+      0 1px 2px rgba(0, 0, 0, 0.18),
+      0 14px 40px rgba(0, 0, 0, 0.22);
   }
 }
 
@@ -71,6 +95,7 @@ body,
 /* ---------- compact pill ---------- */
 
 .pill {
+  position: relative;
   display: flex;
   width: 100%;
   height: 100%;
@@ -81,11 +106,38 @@ body,
   border: 1px solid var(--stroke);
   border-radius: var(--radius-pill);
   background: var(--bg);
-  backdrop-filter: blur(28px) saturate(1.35);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(30px) saturate(1.4);
+  box-shadow: var(--rim), var(--shadow);
   color: var(--text);
   font: inherit;
   cursor: default;
+  overflow: hidden;
+}
+
+/* Album-color underglow while media plays (set via --media-tint). */
+.pill::after {
+  content: "";
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 5px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--media-tint, transparent);
+  opacity: 0.65;
+  transition: opacity 400ms ease;
+  pointer-events: none;
+}
+
+.pill:active {
+  transform: scale(0.985);
+  transition: transform 80ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill:active {
+    transform: none;
+  }
 }
 
 .pill-left {
@@ -98,6 +150,34 @@ body,
 
 .pill-right {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* spectrum bars (pill mini + media card) */
+.spectrum {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  transition: opacity 300ms ease;
+}
+
+.pill-right .spectrum {
+  width: 44px;
+}
+
+.spec-bar {
+  flex: 1;
+  min-height: 2px;
+  border-radius: 1.5px;
+  background: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spectrum {
+    transition: none;
+  }
 }
 
 .pill-mini-time {
@@ -198,6 +278,7 @@ body,
   border-radius: 9px;
   object-fit: cover;
   flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 .pill-art-empty {
@@ -231,16 +312,13 @@ body,
   text-overflow: ellipsis;
 }
 
-.island-root[data-expanded="true"] .pill,
-.island-root.compact .pill:active {
-  /* subtle press feedback */
-}
-
 @media (prefers-reduced-motion: reduce) {
   .pill-attention,
   .timer-dot,
-  .bt-in {
+  .bt-in,
+  .pill::after {
     animation: none;
+    transition: none;
   }
 }
 
@@ -254,8 +332,8 @@ body,
   border: 1px solid var(--stroke);
   border-radius: var(--radius-panel);
   background: var(--bg);
-  backdrop-filter: blur(28px) saturate(1.35);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(34px) saturate(1.4);
+  box-shadow: var(--rim), var(--shadow);
   overflow: hidden;
   outline: none;
 }
@@ -301,32 +379,43 @@ body,
   outline: none;
 }
 
+/* Bento grid: wide player/info cards, paired narrow widget cards. */
 .panel-body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 10px 12px 14px;
-  display: flex;
-  flex-direction: column;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  align-items: start;
+  align-content: start;
   scrollbar-width: thin;
   scrollbar-color: var(--stroke) transparent;
 }
 
+.bento-item.wide {
+  grid-column: 1 / -1;
+}
+
+.bento-item > .card {
+  height: 100%;
+}
+
 .card {
   border: 1px solid var(--stroke);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--bg-card);
   padding: 12px 14px;
 }
 
 .card h3 {
-  margin: 0 0 8px;
-  font-size: 12.5px;
+  margin: 0 0 10px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.7px;
+  letter-spacing: 1.4px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -351,17 +440,19 @@ body,
 
 .chip {
   border: 1px solid var(--stroke);
-  border-radius: 999px;
+  border-radius: 9px;
   background: var(--bg-card);
   color: var(--text);
   font: inherit;
   font-size: 12px;
   padding: 4px 12px;
   cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 
 .chip:hover {
   background: var(--bg-card-hover);
+  border-color: var(--stroke-strong);
 }
 
 .card-actions {
@@ -372,7 +463,7 @@ body,
 
 input {
   border: 1px solid var(--stroke);
-  border-radius: 8px;
+  border-radius: 9px;
   background: var(--bg-card);
   color: var(--text);
   font: inherit;
@@ -400,11 +491,12 @@ button:focus-visible {
 }
 
 .media-art {
-  width: 58px;
-  height: 58px;
-  border-radius: 12px;
+  width: 62px;
+  height: 62px;
+  border-radius: 14px;
   object-fit: cover;
   flex-shrink: 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 
 .media-art-empty {
@@ -448,10 +540,10 @@ button:focus-visible {
 }
 
 .progress-time {
+  font-family: var(--mono);
   font-size: 11px;
   color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  min-width: 30px;
+  min-width: 34px;
 }
 
 .progress-bar {
@@ -488,6 +580,11 @@ button:focus-visible {
   color: var(--text);
   font-size: 15px;
   cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.ctrl-btn:hover {
+  background: var(--bg-card-hover);
 }
 
 .ctrl-btn:disabled {
@@ -521,7 +618,7 @@ button:focus-visible {
   flex-direction: column;
   gap: 4px;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--bg-card);
   border: 1px solid var(--stroke);
 }
@@ -542,9 +639,10 @@ button:focus-visible {
 }
 
 .timer-time {
-  font-size: 15px;
+  font-family: var(--mono);
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
+  color: var(--text);
 }
 
 .timer-bar {
@@ -556,7 +654,7 @@ button:focus-visible {
 
 .timer-fill {
   height: 100%;
-  background: var(--accent);
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .timer-actions {
@@ -610,7 +708,7 @@ button:focus-visible {
 }
 
 .weather-icon {
-  font-size: 30px;
+  font-size: 28px;
 }
 
 .weather-main {
@@ -627,11 +725,15 @@ button:focus-visible {
 }
 
 .weather-desc {
-  font-size: 12.5px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .weather-extra {
   font-size: 11px;
+  line-height: 1.5;
 }
 
 .weather-search {
@@ -697,14 +799,15 @@ button:focus-visible {
 
 .metric-fill {
   height: 100%;
-  background: var(--accent);
+  background: rgba(255, 255, 255, 0.85);
   transition: width 400ms ease;
 }
 
 .metric-value {
-  font-size: 12px;
+  font-family: var(--mono);
+  font-size: 11.5px;
   font-variant-numeric: tabular-nums;
-  min-width: 86px;
+  min-width: 96px;
   text-align: right;
 }
 
@@ -728,7 +831,7 @@ button:focus-visible {
   flex: 1;
   min-height: 2px;
   background: var(--accent);
-  opacity: 0.55;
+  opacity: 0.5;
   border-radius: 1px;
 }
 
@@ -764,7 +867,7 @@ button:focus-visible {
   gap: 8px;
   align-items: center;
   padding: 6px 8px;
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--bg-card);
   border: 1px solid var(--stroke);
 }
@@ -797,7 +900,7 @@ button:focus-visible {
   flex-direction: column;
   gap: 2px;
   padding: 7px 9px;
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--bg-card);
   border: 1px solid var(--stroke);
 }
@@ -823,7 +926,7 @@ button:focus-visible {
   align-items: center;
   gap: 9px;
   padding: 6px 8px;
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--bg-card);
   border: 1px solid var(--stroke);
 }
@@ -920,9 +1023,10 @@ button:focus-visible {
   width: 74px;
   min-height: 90px;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 12px;
   flex-shrink: 0;
   background: var(--bg-card-hover);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }
 
 .info-text {

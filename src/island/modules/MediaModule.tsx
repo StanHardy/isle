@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import * as api from "../../shared/api";
+import SpectrumBars from "../../shared/SpectrumBars";
 import { useIsland } from "../IslandRoot";
 
 /**
- * Now-playing card: artwork, track info, locally-advancing progress and
- * transport controls (SMTC exposes no seek API, so there is no scrubber).
+ * Now-playing card: artwork, track info, locally-advancing progress,
+ * spectrum bars (WASAPI loopback) and transport controls (SMTC exposes no
+ * seek API, so there is no scrubber).
  */
-export default function MediaModule({ art }: { art: string | null }) {
+export default function MediaModule({ art, tint }: { art: string | null; tint: string | null }) {
   const { media } = useIsland();
   const [pos, setPos] = useState(0);
   const baseRef = useRef<{ ms: number; at: number; playing: boolean }>({
@@ -73,6 +75,7 @@ export default function MediaModule({ art }: { art: string | null }) {
         </div>
         <span className="progress-time">{fmt(media.durationMs)}</span>
       </div>
+      <SpectrumBars bands={24} height={36} color={tint} />
       <div className="media-controls">
         <button
           type="button"

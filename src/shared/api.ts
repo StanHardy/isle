@@ -21,6 +21,7 @@ import type {
 export const ev = {
   MEDIA: "media:update",
   MEDIA_INFO: "media:info",
+  SPECTRUM: "audio:spectrum",
   METRICS: "metrics:sample",
   TIMER_TICK: "timer:tick",
   TIMER_DONE: "timer:done",
@@ -34,8 +35,8 @@ export const ev = {
 } as const;
 
 // ---- island window ----
-export const islandSetFrame = (x: number, y: number, w: number, h: number) =>
-  invoke("island_set_frame", { x, y, w, h });
+export const islandSetFrame = (x: number, y: number, w: number, h: number, radius: number) =>
+  invoke("island_set_frame", { x, y, w, h, radius });
 export const islandExpand = () => invoke("island_expand");
 export const islandCollapse = () => invoke("island_collapse");
 export const openSettings = () => invoke("open_settings");
