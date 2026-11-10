@@ -31,19 +31,17 @@ fn ensure_single_instance() -> bool {
     use windows::core::w;
 
     unsafe {
-        let mutex = match CreateMutexW(None, true, w!("Local\\IsleInstance")) {
-            Ok(h) => h,
-            Err(_) => return true, // could not create; allow and carry on
-        };
+        let mutex = CreateMutexW(None, true, w!("Local\\IsleInstance"));
         if GetLastError() == ERROR_ALREADY_EXISTS {
             // Poke the running instance so it flashes the island, then leave.
             if let Ok(event) = OpenEventW(EVENT_MODIFY_STATE, false, w!("Local\\IsleShow")) {
                 let _ = SetEvent(event);
             }
-            std::mem::forget(mutex);
             return false;
         }
-        std::mem::forget(mutex); // hold for process lifetime
+        // Deliberately leak the HANDLE wrapper: the OS-level mutex stays held
+        // until process exit, which is what enforces single-instance.
+        let _ = mutex;
         true
     }
 }

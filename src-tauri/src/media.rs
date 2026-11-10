@@ -277,12 +277,65 @@ fn emit_current(app: &AppHandle, force_art: bool) -> windows::core::Result<()> {
     Ok(())
 }
 
+/// "Suits S05E02.Compensation.mkv" → "Suits · S05E02 — Compensation".
+/// Local players (mpc-hc) expose the raw filename via SMTC; this prettifies
+/// episode-style names while leaving normal titles untouched.
+fn display_title(raw: &str) -> String {
+    let base = raw.trim();
+    const EXTS: [&str; 9] = ["mkv", "mp4", "avi", "mov", "webm", "ts", "m2ts", "wmv", "flv"];
+    let lower = base.to_lowercase();
+    let mut no_ext = base;
+    for ext in EXTS {
+        if lower.ends_with(&format!(".{ext}")) {
+            no_ext = &base[..base.len() - ext.len() - 1];
+            break;
+        }
+    }
+    let bytes = no_ext.as_bytes();
+    let mut i = 0;
+    while i + 1 < bytes.len() {
+        let is_s = bytes[i] == b's' || bytes[i] == b'S';
+        let boundary = i == 0 || !bytes[i - 1].is_ascii_alphanumeric();
+        if is_s && boundary && bytes[i + 1].is_ascii_digit() {
+            let mut j = i + 1;
+            while j < bytes.len() && bytes[j].is_ascii_digit() && j - i <= 2 {
+                j += 1;
+            }
+            if j < bytes.len() && (bytes[j] == b'e' || bytes[j] == b'E') {
+                let mut k = j + 1;
+                while k < bytes.len() && bytes[k].is_ascii_digit() && k - j <= 3 {
+                    k += 1;
+                }
+                if k > j + 1 {
+                    if let (Ok(season), Ok(ep)) = (
+                        no_ext[i + 1..j].parse::<u32>(),
+                        no_ext[j + 1..k].parse::<u32>(),
+                    ) {
+                        if season > 0 && ep > 0 {
+                            let show = crate::providers::tmdb::clean_show(&no_ext[..i]);
+                            let rest = crate::providers::tmdb::clean_show(&no_ext[k..]);
+                            let mut out = format!("{show} · S{season:02}E{ep:02}");
+                            if !rest.is_empty() {
+                                out.push_str(&format!(" — {rest}"));
+                            }
+                            return out;
+                        }
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+    base.to_string()
+}
+
 fn build_state(
     s: &GlobalSystemMediaTransportControlsSession,
     want_art: bool,
 ) -> windows::core::Result<MediaState> {
     let props = wait(s.TryGetMediaPropertiesAsync()?)?;
-    let title = props.Title().map(|t| t.to_string()).unwrap_or_default();
+    let raw_title = props.Title().map(|t| t.to_string()).unwrap_or_default();
+    let title = display_title(&raw_title);
     let artist = props.Artist().map(|t| t.to_string()).unwrap_or_default();
     let album = props.AlbumTitle().map(|t| t.to_string()).unwrap_or_default();
     let app_id = s.SourceAppUserModelId()?.to_string();
@@ -486,5 +539,21 @@ mod tests {
         assert_eq!(detect_mime(&[0xFF, 0xD8, 0xFF, 0xE0]), "image/jpeg");
         assert_eq!(detect_mime(b"RIFF\x00\x00\x00\x00WEBPVP8 "), "image/webp");
         assert_eq!(detect_mime(&[1, 2, 3]), "image/png");
+    }
+
+    #[test]
+    fn display_title_prettifies_episode_filenames() {
+        assert_eq!(
+            display_title("Suits S05E02.Compensation.mkv"),
+            "Suits · S05E02 — Compensation"
+        );
+        assert_eq!(
+            display_title("show.name.S02E05.720p.WEB-DL.x264"),
+            "show name · S02E05"
+        );
+        assert_eq!(display_title("Blade Runner 2049"), "Blade Runner 2049");
+        assert_eq!(display_title("ASAP S1E1"), "ASAP · S01E01");
+        // No extension stripping without a known video extension.
+        assert_eq!(display_title("Regular Song Name"), "Regular Song Name");
     }
 }

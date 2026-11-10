@@ -14,8 +14,22 @@ static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 /// Phone companion bridge: a token-gated LAN HTTP endpoint. Phones relay
 /// notifications via POST /notify; replies are never promised (phone OS
 /// restrictions), see README "Phone companion".
+///
+/// The socket binds lazily — only once the user enables the bridge — so the
+/// Windows Firewall prompt never appears for a disabled feature.
 pub fn start(app: AppHandle) {
     std::thread::spawn(move || {
+        loop {
+            let enabled = {
+                let state: tauri::State<AppState> = app.state();
+                let s = state.settings.read().expect("settings lock");
+                s.bridge_enabled
+            };
+            if enabled {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_secs(3));
+        }
         let server = match Server::http(("0.0.0.0", PORT)) {
             Ok(s) => s,
             Err(err) => {
@@ -23,6 +37,7 @@ pub fn start(app: AppHandle) {
                 return;
             }
         };
+        eprintln!("[bridge] listening on 0.0.0.0:{PORT}");
         for request in server.incoming_requests() {
             handle(&app, request);
         }

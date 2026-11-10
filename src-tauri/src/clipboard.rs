@@ -132,15 +132,13 @@ pub fn read_text() -> Option<String> {
             }
             // Wide string, NUL-terminated.
             let mut len = 0usize;
-            unsafe {
-                while *ptr.cast::<u16>().add(len) != 0 {
-                    len += 1;
-                }
-                let slice = std::slice::from_raw_parts(ptr.cast::<u16>(), len);
-                let text = String::from_utf16_lossy(slice);
-                GlobalUnlock(hglobal);
-                return Some(text);
+            while *ptr.cast::<u16>().add(len) != 0 {
+                len += 1;
             }
+            let slice = std::slice::from_raw_parts(ptr.cast::<u16>(), len);
+            let text = String::from_utf16_lossy(slice);
+            let _ = GlobalUnlock(hglobal);
+            return Some(text);
         })();
         let _ = CloseClipboard();
         result
