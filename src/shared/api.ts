@@ -21,6 +21,7 @@ import type {
 // Event channel names — keep in sync with src-tauri/src/events.rs.
 export const ev = {
   MEDIA: "media:update",
+  MEDIA_INFO: "media:info",
   METRICS: "metrics:sample",
   TIMER_TICK: "timer:tick",
   TIMER_DONE: "timer:done",
@@ -96,6 +97,8 @@ export const mediaLookup = (kind: string, query?: string) =>
   invoke<MediaInfo | null>("media_lookup", { kind, query: query ?? null });
 export const mediaSearch = (kind: string, query: string) =>
   invoke<SearchHit[]>("media_search", { kind, query });
+export const mediaInfoCached = () =>
+  invoke<MediaInfo | null>("media_info_cached");
 
 // ---- clipboard ----
 export const clipboardList = () => invoke<ClipEntry[]>("clipboard_list");

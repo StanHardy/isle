@@ -290,14 +290,18 @@ pub async fn media_lookup(
         "auto" => {
             let snapshot = state.media.lock().expect("media state lock").clone();
             let Some(m) = snapshot else { return Ok(None) };
+            // Serve from cache first — the background auto-lookup may have
+            // already fetched this entry.
+            {
+                let cache = state.media_info.lock().expect("media info lock");
+                if let Some(info) = crate::state::media_info_get(&cache, &m.art_key) {
+                    return Ok(Some(info));
+                }
+            }
             let info = tmdb::lookup_auto(&m, tmdb_key.as_deref()).await;
-            let key = m.art_key.clone();
             if let Some(info) = info.clone() {
-                state
-                    .media_info
-                    .lock()
-                    .expect("media info lock")
-                    .insert(key, info);
+                let mut cache = state.media_info.lock().expect("media info lock");
+                crate::state::media_info_insert(&mut cache, m.art_key.clone(), info.clone());
             }
             Ok(info)
         }
@@ -328,6 +332,15 @@ pub async fn media_search(
 ) -> Result<Vec<tmdb::SearchHit>, String> {
     let key = credentials::get_secret("Isle:tmdb");
     tmdb::search(&kind, query.trim(), key.as_deref()).await
+}
+
+/// Cached info for the currently playing media, if any (no network).
+#[tauri::command]
+pub fn media_info_cached(app: AppHandle) -> Option<tmdb::MediaInfo> {
+    let state: tauri::State<AppState> = app.state();
+    let m = state.media.lock().expect("media state lock").clone()?;
+    let cache = state.media_info.lock().expect("media info lock");
+    crate::state::media_info_get(&cache, &m.art_key)
 }
 
 // ---- clipboard ----

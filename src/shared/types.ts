@@ -131,6 +131,8 @@ export interface Settings {
   weatherCity: CityRef | null;
   units: Units;
   lyricsEnabled: boolean;
+  /** Auto-lookup TV/movie info for video-looking media. */
+  mediaInfoAuto: boolean;
   clipboardEnabled: boolean;
   clipboardKeep: number;
   notificationsEnabled: boolean;

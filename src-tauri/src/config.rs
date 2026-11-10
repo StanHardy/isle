@@ -64,6 +64,8 @@ pub struct Settings {
     pub weather_city: Option<CityRef>,
     pub units: Units,
     pub lyrics_enabled: bool,
+    /// Auto-lookup TV/movie info for video-looking media (episode/year titles).
+    pub media_info_auto: bool,
     /// Opt-in clipboard history (privacy-sensitive).
     pub clipboard_enabled: bool,
     /// Bounded local retention for clipboard history.
@@ -115,6 +117,7 @@ impl Default for Settings {
             weather_city: None,
             units: Units::Metric,
             lyrics_enabled: true,
+            media_info_auto: true,
             clipboard_enabled: false,
             clipboard_keep: 100,
             notifications_enabled: false,
@@ -219,6 +222,7 @@ pub const DEFAULT_SETTINGS_JSON: &str = r#"{
   "weatherCity": null,
   "units": "metric",
   "lyricsEnabled": true,
+  "mediaInfoAuto": true,
   "clipboardEnabled": false,
   "clipboardKeep": 100,
   "notificationsEnabled": false,

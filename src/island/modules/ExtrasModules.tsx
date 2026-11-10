@@ -114,13 +114,24 @@ export function LyricsModule() {
   );
 }
 
-/** TV/movie art + overview for the playing media (TVmaze keyless / optional TMDB). */
+/**
+ * TV/movie art + overview. The backend auto-looks-up video-looking media
+ * (episode/year titles) in the background and pushes media:info; music is
+ * left alone unless the user clicks Find info manually.
+ */
+function looksLikeVideo(rawTitle: string): boolean {
+  if (/(?:^|[^a-z\d])s\d{1,2}e\d{1,3}(?:[^a-z\d]|$)/i.test(rawTitle)) return true;
+  return /(?:^|\D)(19\d\d|20\d\d)(?=\D|$)/.test(rawTitle);
+}
+
 export function InfoModule() {
   const media = useMedia();
   const [info, setInfo] = useState<MediaInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const forKey = useRef<string>("");
+  const cache = useRef(new Map<string, MediaInfo>());
 
+  // Reset per track; serve from the local cache or the backend cache.
   useEffect(() => {
     if (!media) {
       setInfo(null);
@@ -128,7 +139,39 @@ export function InfoModule() {
       return;
     }
     if (forKey.current === media.artKey) return;
+    forKey.current = media.artKey;
+    const local = cache.current.get(media.artKey);
+    if (local) {
+      setInfo(local);
+      return;
+    }
     setInfo(null);
+    api
+      .mediaInfoCached()
+      .then((cached) => {
+        if (forKey.current !== media.artKey) return;
+        if (cached) {
+          cache.current.set(media.artKey, cached);
+          setInfo(cached);
+        } else if (looksLikeVideo(media.rawTitle)) {
+          setLoading(true); // backend auto-lookup is on its way
+        }
+      })
+      .catch(() => {});
+  }, [media?.artKey]);
+
+  // Live results from the backend auto-lookup.
+  useEffect(() => {
+    const un = api.listen<{ key: string; info: MediaInfo }>(api.ev.MEDIA_INFO, (e) => {
+      cache.current.set(e.payload.key, e.payload.info);
+      if (media && e.payload.key === media.artKey) {
+        setInfo(e.payload.info);
+        setLoading(false);
+      }
+    });
+    return () => {
+      un.then((f) => f()).catch(() => {});
+    };
   }, [media?.artKey]);
 
   const lookup = async () => {
@@ -136,7 +179,12 @@ export function InfoModule() {
     forKey.current = media.artKey;
     setLoading(true);
     try {
-      setInfo(await api.mediaLookup("auto"));
+      const result = await api.mediaLookup("auto");
+      if (forKey.current !== media.artKey) return;
+      if (result) {
+        cache.current.set(media.artKey, result);
+        setInfo(result);
+      }
     } finally {
       setLoading(false);
     }
@@ -146,7 +194,7 @@ export function InfoModule() {
     return (
       <div className="card">
         <h3>What you're watching</h3>
-        <p className="muted">Play a movie or TV episode to look up art and summaries.</p>
+        <p className="muted">Play a movie or TV episode to get art and summaries automatically.</p>
       </div>
     );
   }
@@ -166,7 +214,9 @@ export function InfoModule() {
       ) : (
         <>
           <p className="muted">
-            {loading ? "Looking up…" : "Not identified yet. Looking up uses TVmaze (keyless) or your TMDB key."}
+            {loading
+              ? "Looking up…"
+              : "Not identified yet. Episodes and movies are looked up automatically; you can also search manually."}
           </p>
           <button type="button" className="chip" onClick={lookup} disabled={loading}>
             {loading ? "…" : "Find info"}

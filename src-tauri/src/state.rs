@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, RwLock};
 
-use crate::config::{Settings, DEFAULT_SETTINGS_JSON};
+use crate::config::Settings;
 use crate::clipboard::ClipStore;
 use crate::media::MediaState;
 use crate::providers::tmdb::MediaInfo;
@@ -23,8 +23,29 @@ pub struct AppState {
     pub bt_devices: Mutex<HashMap<String, crate::bluetooth::BtDevice>>,
     /// Whether the island UI currently wants metric samples.
     pub metrics_subscribed: AtomicBool,
-    /// Looked-up TV/movie info keyed by media art key.
-    pub media_info: Mutex<HashMap<String, MediaInfo>>,
+    /// Looked-up TV/movie info keyed by media art key (bounded, oldest first).
+    pub media_info: Mutex<Vec<(String, MediaInfo)>>,
+}
+
+/// Bounded media-info cache helpers shared by commands and the auto-lookup.
+pub const MEDIA_INFO_CAP: usize = 40;
+
+pub fn media_info_get(cache: &[(String, MediaInfo)], key: &str) -> Option<MediaInfo> {
+    cache
+        .iter()
+        .find(|(k, _)| k == key)
+        .map(|(_, info)| info.clone())
+}
+
+pub fn media_info_insert(cache: &mut Vec<(String, MediaInfo)>, key: String, info: MediaInfo) {
+    if let Some(slot) = cache.iter_mut().find(|(k, _)| *k == key) {
+        slot.1 = info;
+        return;
+    }
+    if cache.len() >= MEDIA_INFO_CAP {
+        cache.remove(0);
+    }
+    cache.push((key, info));
 }
 
 impl AppState {
@@ -37,7 +58,7 @@ impl AppState {
             notifications: Mutex::new(Vec::new()),
             bt_devices: Mutex::new(HashMap::new()),
             metrics_subscribed: AtomicBool::new(false),
-            media_info: Mutex::new(HashMap::new()),
+            media_info: Mutex::new(Vec::new()),
         }
     }
 }
@@ -46,9 +67,4 @@ impl Default for AppState {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Exposed for unit tests / external tools: the default settings document.
-pub fn default_settings() -> serde_json::Value {
-    serde_json::from_str(DEFAULT_SETTINGS_JSON).expect("default settings json is valid")
 }

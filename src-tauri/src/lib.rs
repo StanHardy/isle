@@ -142,6 +142,7 @@ pub fn run() {
             commands::lyrics_fetch,
             commands::media_lookup,
             commands::media_search,
+            commands::media_info_cached,
             commands::clipboard_list,
             commands::clipboard_reveal,
             commands::clipboard_copy,

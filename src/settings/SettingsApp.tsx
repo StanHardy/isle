@@ -212,6 +212,12 @@ export default function SettingsApp() {
                 onChange={(v) => update({ lyricsEnabled: v })}
               />
               <Toggle
+                label="Auto-lookup TV/movie info"
+                hint="Fetch art + summaries in the background for video-looking titles (episodes, year-tagged movies)"
+                checked={settings.mediaInfoAuto}
+                onChange={(v) => update({ mediaInfoAuto: v })}
+              />
+              <Toggle
                 label="System metrics"
                 hint="CPU, memory and network sampling while the panel is open"
                 checked={settings.metricsEnabled}

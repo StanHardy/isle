@@ -181,6 +181,46 @@ fn parse_numeric_entity(rest: &str) -> Option<u32> {
     u32::from_str_radix(hex, 16).ok()
 }
 
+// ---------- video heuristics ----------
+
+/// A standalone 19xx/20xx year token, e.g. "Arrival (2016)" or
+/// "Movie.2016.1080p.WEB-DL".
+pub fn year_in_title(text: &str) -> Option<u32> {
+    let b = text.as_bytes();
+    let mut i = 0;
+    while i + 4 <= b.len() {
+        if b[i].is_ascii_digit()
+            && b[i + 1].is_ascii_digit()
+            && b[i + 2].is_ascii_digit()
+            && b[i + 3].is_ascii_digit()
+        {
+            let prev_ok = i == 0 || !b[i - 1].is_ascii_digit();
+            let next_ok = i + 4 >= b.len() || !b[i + 4].is_ascii_digit();
+            if prev_ok && next_ok {
+                if let Ok(y) = text[i..i + 4].parse::<u32>() {
+                    if (1900..=2100).contains(&y) {
+                        return Some(y);
+                    }
+                }
+            }
+            i += 4;
+        } else {
+            i += 1;
+        }
+    }
+    None
+}
+
+/// Whether this media looks like a video worth auto-looking-up: episode
+/// pattern (SxxEyy) or a year token. Song titles rarely match, which keeps
+/// the auto-lookup from fetching movie results for music.
+pub fn looks_like_video(raw_title: &str) -> bool {
+    if parse_episode_title(raw_title).is_some() {
+        return true;
+    }
+    year_in_title(raw_title).is_some()
+}
+
 // ---------- network lookups ----------
 
 /// Resolve info for the playing media: TV via TVmaze (keyless), movies via
@@ -520,5 +560,18 @@ mod tests {
             "Mike & Harvey"
         );
         assert_eq!(strip_html("<b>Bold</b> &#x27;quoted&#x27;"), "Bold 'quoted'");
+    }
+
+    #[test]
+    fn detects_video_like_titles() {
+        assert!(looks_like_video("Suits.S05E02.Compensation.mkv"));
+        assert!(looks_like_video("Arrival.2016.1080p.BluRay"));
+        assert!(looks_like_video("Movie (2016)"));
+        // Music: no episode pattern, no year token.
+        assert!(!looks_like_video("Daily Routine"));
+        // A bare number that isn't a plausible year is not a year token.
+        assert!(!looks_like_video("Track 07"));
+        // Songs named after years WILL match — accepted trade-off.
+        assert!(looks_like_video("1979"));
     }
 }

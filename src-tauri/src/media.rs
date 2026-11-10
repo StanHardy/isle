@@ -174,7 +174,11 @@ fn refresh(app: &AppHandle) -> windows::core::Result<()> {
             attach_handlers(&s, app);
             let want_art = art_key_changed(&s)?;
             let state = build_state(&s, want_art)?;
+            let key = state.art_key.clone();
             update_and_emit(app, Some(state));
+            if want_art {
+                schedule_info_lookup(app, key);
+            }
         }
         None => {
             *LAST_ART_KEY.lock().expect("art key lock") = String::new();
@@ -182,6 +186,66 @@ fn refresh(app: &AppHandle) -> windows::core::Result<()> {
         }
     }
     Ok(())
+}
+
+/// Background TV/movie lookup for video-looking media (episode or year
+/// titles). Debounced and re-validated so fast track skips don't stack
+/// stale fetches; result is cached and pushed via media:info.
+fn schedule_info_lookup(app: &AppHandle, key: String) {
+    let enabled = {
+        let state: tauri::State<AppState> = app.state();
+        let s = state.settings.read().expect("settings lock");
+        s.media_info_auto
+    };
+    if !enabled {
+        return;
+    }
+    let raw_title = {
+        let state: tauri::State<AppState> = app.state();
+        let m = state.media.lock().expect("media state lock");
+        match m.as_ref() {
+            Some(m) => m.raw_title.clone(),
+            None => return,
+        }
+    };
+    if !crate::providers::tmdb::looks_like_video(&raw_title) {
+        return;
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+        ensure_com();
+        let state: tauri::State<AppState> = app.state();
+        let current_key = {
+            let m = state.media.lock().expect("media state lock");
+            match m.as_ref() {
+                Some(m) => m.art_key.clone(),
+                None => return,
+            }
+        };
+        if current_key != key {
+            return; // track changed again while we waited
+        }
+        let snapshot = {
+            let m = state.media.lock().expect("media state lock");
+            m.clone()
+        };
+        let Some(m) = snapshot else { return };
+        let tmdb_key = crate::credentials::get_secret("Isle:tmdb");
+        let info =
+            tauri::async_runtime::block_on(crate::providers::tmdb::lookup_auto(&m, tmdb_key.as_deref()));
+        if let Some(info) = info {
+            {
+                let mut cache = state.media_info.lock().expect("media info lock");
+                crate::state::media_info_insert(&mut cache, key.clone(), info.clone());
+            }
+            events::emit(
+                &app,
+                ev::MEDIA_INFO,
+                &serde_json::json!({ "key": key, "info": info }),
+            );
+        }
+    });
 }
 
 /// Update the cached art key; true when artwork should be re-fetched.
@@ -270,7 +334,11 @@ fn emit_current(app: &AppHandle, force_art: bool) -> windows::core::Result<()> {
                 art_key_changed(&s)?
             };
             let state = build_state(&s, want_art)?;
+            let key = state.art_key.clone();
             update_and_emit(app, Some(state));
+            if want_art {
+                schedule_info_lookup(app, key);
+            }
         }
         None => {
             *LAST_ART_KEY.lock().expect("art key lock") = String::new();
