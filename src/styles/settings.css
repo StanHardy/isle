@@ -1,0 +1,250 @@
+/* Isle settings window — follows system theme. */
+
+:root {
+  --accent: #4cc2ff;
+  --bg: #1c1c22;
+  --bg-alt: #232329;
+  --bg-row: rgba(255, 255, 255, 0.04);
+  --stroke: rgba(255, 255, 255, 0.09);
+  --text: #f0f0f4;
+  --text-muted: rgba(240, 240, 244, 0.62);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f6f9;
+    --bg-alt: #ffffff;
+    --bg-row: rgba(0, 0, 0, 0.035);
+    --stroke: rgba(0, 0, 0, 0.1);
+    --text: #1a1a20;
+    --text-muted: rgba(26, 26, 32, 0.62);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.settings-app {
+  display: flex;
+  height: 100vh;
+}
+
+.settings-loading {
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+.settings-nav {
+  width: 210px;
+  flex-shrink: 0;
+  background: var(--bg-alt);
+  border-right: 1px solid var(--stroke);
+  padding: 18px 12px;
+}
+
+.settings-brand {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 0 10px 16px;
+}
+
+.settings-nav nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background: var(--bg-row);
+}
+
+.nav-item.active {
+  background: var(--bg-row);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.settings-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px 28px 40px;
+}
+
+.settings-section {
+  max-width: 720px;
+  margin-bottom: 26px;
+}
+
+.settings-section h2 {
+  font-size: 15px;
+  margin: 0 0 10px;
+}
+
+.settings-group {
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  background: var(--bg-alt);
+  padding: 6px 16px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+.setting-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.setting-label {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.setting-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+input[type="checkbox"],
+input[type="range"],
+input[type="number"],
+input[type="text"],
+input[type="password"],
+select {
+  accent-color: var(--accent);
+}
+
+input[type="range"] {
+  width: 180px;
+}
+
+input[type="number"] {
+  width: 90px;
+}
+
+.module-row {
+  justify-content: space-between;
+}
+
+.module-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mini-btn {
+  border: 1px solid var(--stroke);
+  border-radius: 7px;
+  background: var(--bg-row);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.mini-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.mini-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.mini-btn.wide {
+  width: 100%;
+  text-align: left;
+}
+
+.inline-form {
+  display: flex;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.inline-form input[type="text"],
+.inline-form input[type="password"] {
+  flex: 1;
+}
+
+.chip {
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  background: var(--bg-row);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  padding: 5px 14px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.city-results {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.token-row {
+  flex-wrap: wrap;
+}
+
+.bridge-token {
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 13px;
+  background: var(--bg-row);
+  border: 1px dashed var(--stroke);
+  border-radius: 7px;
+  padding: 6px 10px;
+  user-select: text;
+}
+
+code {
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 11.5px;
+  background: var(--bg-row);
+  border-radius: 5px;
+  padding: 1px 5px;
+  user-select: text;
+}

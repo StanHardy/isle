@@ -1,0 +1,185 @@
+mod bluetooth;
+mod bridge;
+mod clipboard;
+mod commands;
+mod config;
+mod credentials;
+mod events;
+mod fullscreen;
+mod island_window;
+mod media;
+mod metrics;
+mod notify;
+mod providers;
+mod state;
+mod timers;
+
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::TrayIconBuilder,
+    Manager,
+};
+
+use state::AppState;
+
+/// Single-instance guard. Returns false when another Isle already owns the
+/// mutex (we then poke its show-event and exit).
+fn ensure_single_instance() -> bool {
+    use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+    use windows::Win32::System::Threading::{CreateMutexW, SetEvent};
+    use windows::Win32::System::Threading::{OpenEventW, EVENT_MODIFY_STATE};
+    use windows::core::w;
+
+    unsafe {
+        let mutex = match CreateMutexW(None, true, w!("Local\\IsleInstance")) {
+            Ok(h) => h,
+            Err(_) => return true, // could not create; allow and carry on
+        };
+        if GetLastError() == ERROR_ALREADY_EXISTS {
+            // Poke the running instance so it flashes the island, then leave.
+            if let Ok(event) = OpenEventW(EVENT_MODIFY_STATE, false, w!("Local\\IsleShow")) {
+                let _ = SetEvent(event);
+            }
+            std::mem::forget(mutex);
+            return false;
+        }
+        std::mem::forget(mutex); // hold for process lifetime
+        true
+    }
+}
+
+/// Wait for "show me" pokes from second launches.
+fn start_show_watcher(app: tauri::AppHandle) {
+    use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject, INFINITE};
+    use windows::core::w;
+
+    std::thread::spawn(move || unsafe {
+        let event = match CreateEventW(None, false, false, w!("Local\\IsleShow")) {
+            Ok(h) => h,
+            Err(_) => return,
+        };
+        loop {
+            WaitForSingleObject(event, INFINITE);
+            if let Some(win) = island_window::island(&app) {
+                let _ = win.show();
+                let _ = win.set_focus();
+            }
+            events::emit(
+                &app,
+                events::ev::ATTENTION,
+                &serde_json::json!({ "kind": "welcome", "text": "Isle is already running" }),
+            );
+        }
+    });
+}
+
+fn create_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let settings = MenuItem::with_id(app, "open-settings", "Settings", true, None::<&str>)?;
+    let toggle = MenuItem::with_id(app, "toggle-island", "Show / Hide Island", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit Isle", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&settings, &toggle, &quit])?;
+    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
+    TrayIconBuilder::with_id("isle-tray")
+        .icon(icon)
+        .tooltip("Isle")
+        .menu(&menu)
+        .show_menu_on_left_click(true)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "open-settings" => show_settings(app),
+            "toggle-island" => toggle_island(app),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .build(app)?;
+    Ok(())
+}
+
+fn show_settings(app: &tauri::AppHandle) {
+    if let Some(win) = island_window::settings_window(app) {
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+}
+
+fn toggle_island(app: &tauri::AppHandle) {
+    if let Some(win) = island_window::island(app) {
+        if win.is_visible().unwrap_or(false) {
+            let _ = win.hide();
+        } else {
+            let _ = win.show();
+        }
+    }
+}
+
+pub fn run() {
+    if !ensure_single_instance() {
+        return;
+    }
+    tauri::Builder::default()
+        .manage(AppState::new())
+        .invoke_handler(tauri::generate_handler![
+            commands::island_set_frame,
+            commands::island_expand,
+            commands::island_collapse,
+            commands::open_settings,
+            commands::hide_island,
+            commands::show_island,
+            commands::quit_app,
+            commands::island_anchor,
+            commands::settings_get,
+            commands::settings_update,
+            commands::media_current,
+            commands::media_play_pause,
+            commands::media_next,
+            commands::media_prev,
+            commands::timer_add,
+            commands::timer_cancel,
+            commands::timer_pause,
+            commands::timer_resume,
+            commands::timers_list,
+            commands::metrics_subscribe,
+            commands::weather_geocode,
+            commands::weather_refresh,
+            commands::weather_set_city,
+            commands::lyrics_fetch,
+            commands::media_lookup,
+            commands::media_search,
+            commands::clipboard_list,
+            commands::clipboard_reveal,
+            commands::clipboard_copy,
+            commands::clipboard_delete,
+            commands::clipboard_clear,
+            commands::notifications_list,
+            commands::notifications_clear,
+            commands::bt_devices,
+            commands::bridge_status,
+            commands::bridge_set_enabled,
+            commands::bridge_regenerate_token,
+            commands::providers_set_tmdb,
+            commands::providers_clear_tmdb,
+            commands::providers_has_tmdb,
+            commands::theme_setting,
+            commands::units_setting,
+            commands::expand_mode_setting,
+        ])
+        .setup(|app| {
+            let handle = app.handle().clone();
+            island_window::create(&handle)?;
+            island_window::create_settings(&handle)?;
+            create_tray(&handle)?;
+            island_window::start_watch(handle.clone());
+            start_show_watcher(handle.clone());
+            media::start(handle.clone());
+            metrics::start(handle.clone());
+            timers::start(handle.clone());
+            clipboard::start(handle.clone());
+            notify::start(handle.clone());
+            bluetooth::start(handle.clone());
+            fullscreen::start(handle.clone());
+            providers::open_meteo::start_service(handle.clone());
+            bridge::start(handle);
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("Isle failed to start");
+}

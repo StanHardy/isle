@@ -1,0 +1,31 @@
+{
+  "name": "isle",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev:vite": "vite",
+    "build:vite": "tsc --noEmit && vite build",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "test:fe": "vitest run",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test": "npm run test:fe && npm run test:rust"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^5",
+    "jsdom": "^26",
+    "typescript": "^5.9",
+    "vite": "^7",
+    "vitest": "^3"
+  }
+}

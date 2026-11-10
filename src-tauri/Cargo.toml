@@ -1,0 +1,50 @@
+[package]
+name = "isle"
+version = "1.0.0"
+description = "Isle — a Windows 11 Dynamic Island"
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "isle_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+sysinfo = "0.36"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip"] }
+tokio = { version = "1", features = ["time", "macros", "sync"] }
+tiny_http = "0.12"
+windows-future = { version = "0.3.2", default-features = false, features = ["std"] }
+
+[dependencies.windows]
+version = "0.62"
+features = [
+  "Foundation",
+  "Foundation_Collections",
+  "Media_Control",
+  "Storage_Streams",
+  "Devices_Enumeration",
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_System_Com",
+  "Win32_Security_Credentials",
+  "Win32_System_DataExchange",
+  "Win32_System_Memory",
+  "Win32_System_Threading",
+  "Win32_UI_Accessibility",
+  "Win32_UI_WindowsAndMessaging",
+]
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
