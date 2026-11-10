@@ -441,6 +441,19 @@ pub async fn fetch_data_url(url: String) -> Result<String, String> {
     ))
 }
 
+/// Copy "title — artist" of the playing media to the clipboard.
+#[tauri::command]
+pub fn copy_now_playing(app: AppHandle) -> Result<bool, String> {
+    let state: tauri::State<AppState> = app.state();
+    let m = state.media.lock().expect("media state lock").clone();
+    let Some(m) = m else { return Ok(false) };
+    if m.title.is_empty() {
+        return Ok(false);
+    }
+    let text = format!("{} — {}", m.title, m.artist);
+    Ok(crate::clipboard::set_text(&text))
+}
+
 // ---- clipboard ----
 
 #[tauri::command]

@@ -1,3 +1,4 @@
+mod audio;
 mod bluetooth;
 mod bridge;
 mod clipboard;
@@ -152,6 +153,7 @@ pub fn run() {
             commands::hide_island,
             commands::show_island,
             commands::quit_app,
+            commands::copy_now_playing,
             commands::frontend_log,
             commands::update_check,
             commands::update_install,

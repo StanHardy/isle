@@ -10,6 +10,7 @@ import { useIsland } from "../IslandRoot";
  */
 export default function MediaModule({ art, tint }: { art: string | null; tint: string | null }) {
   const { media, settings } = useIsland();
+  const [copied, setCopied] = useState(false);
   const [pos, setPos] = useState(0);
   const baseRef = useRef<{ ms: number; at: number; playing: boolean }>({
     ms: 0,
@@ -113,6 +114,19 @@ export default function MediaModule({ art, tint }: { art: string | null; tint: s
           onClick={() => api.mediaNext()}
         >
           ⏭
+        </button>
+        <button
+          type="button"
+          className="ctrl-btn"
+          aria-label="Copy song info to clipboard"
+          title="Copy “title — artist”"
+          onClick={async () => {
+            const ok = await api.copyNowPlaying();
+            setCopied(ok === true);
+            setTimeout(() => setCopied(false), 1500);
+          }}
+        >
+          {copied ? "✓" : "⧉"}
         </button>
       </div>
       <p className="media-app muted">via {media.app}</p>

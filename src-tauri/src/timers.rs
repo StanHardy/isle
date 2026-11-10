@@ -55,6 +55,9 @@ pub fn start(app: AppHandle) {
                     ev::ATTENTION,
                     &serde_json::json!({ "kind": "timer-done", "id": id, "label": label }),
                 );
+                if timer_sound(&app) {
+                    crate::audio::play_system_sound("Notification.Default");
+                }
             }
             if now - last_tick_ms >= 500 {
                 last_tick_ms = now;
@@ -65,6 +68,12 @@ pub fn start(app: AppHandle) {
             }
         }
     });
+}
+
+fn timer_sound(app: &AppHandle) -> bool {
+    let state: tauri::State<AppState> = app.state();
+    let s = state.settings.read().expect("settings lock");
+    s.timer_sound
 }
 
 /// Create a timer; returns the assigned id.

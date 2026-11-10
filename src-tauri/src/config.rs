@@ -103,6 +103,8 @@ pub struct Settings {
     pub media_info_auto: bool,
     /// Spectrum bar color theme.
     pub spectrum_style: SpectrumStyle,
+    /// Play a chime when a timer completes.
+    pub timer_sound: bool,
     /// Opt-in clipboard history (privacy-sensitive).
     pub clipboard_enabled: bool,
     /// Bounded local retention for clipboard history.
@@ -158,6 +160,7 @@ impl Default for Settings {
             lyrics_enabled: true,
             media_info_auto: true,
             spectrum_style: SpectrumStyle::Accent,
+            timer_sound: true,
             clipboard_enabled: false,
             clipboard_keep: 100,
             notifications_enabled: false,
@@ -266,6 +269,7 @@ pub const DEFAULT_SETTINGS_JSON: &str = r#"{
   "lyricsEnabled": true,
   "mediaInfoAuto": true,
   "spectrumStyle": "accent",
+  "timerSound": true,
   "clipboardEnabled": false,
   "clipboardKeep": 100,
   "notificationsEnabled": false,

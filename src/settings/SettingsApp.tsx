@@ -219,6 +219,12 @@ export default function SettingsApp() {
                 </select>
               </label>
               <Toggle
+                label="Timer completion sound"
+                hint="Play a chime when a countdown finishes"
+                checked={settings.timerSound}
+                onChange={(v) => update({ timerSound: v })}
+              />
+              <Toggle
                 label="Hide in fullscreen apps"
                 hint="The island steps aside during games and fullscreen video"
                 checked={settings.hideFullscreen}

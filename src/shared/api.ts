@@ -63,6 +63,8 @@ export const expandModeSetting = () => invoke<ExpandMode>("expand_mode_setting")
 
 // ---- media ----
 export const mediaCurrent = () => invoke<MediaState | null>("media_current");
+export const copyNowPlaying = () =>
+  invoke<boolean>("copy_now_playing");
 export const mediaPlayPause = () => invoke("media_play_pause");
 export const mediaNext = () => invoke("media_next");
 export const mediaPrev = () => invoke("media_prev");

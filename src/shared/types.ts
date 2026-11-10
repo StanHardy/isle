@@ -140,6 +140,8 @@ export interface Settings {
   mediaInfoAuto: boolean;
   /** Spectrum bar color theme. */
   spectrumStyle: SpectrumStyle;
+  /** Play a chime when a timer completes. */
+  timerSound: boolean;
   clipboardEnabled: boolean;
   clipboardKeep: number;
   notificationsEnabled: boolean;
