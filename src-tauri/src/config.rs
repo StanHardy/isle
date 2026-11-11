@@ -147,6 +147,7 @@ impl Default for Settings {
                 ("metrics", true),
                 ("info", true),
                 ("mixer", true),
+                ("devices", true),
                 ("lyrics", true),
                 ("mic", true),
                 ("bluetooth", true),
@@ -218,7 +219,7 @@ impl Settings {
 fn migrate_module_order(order: &[String]) -> Vec<String> {
     let defaults = [
         "media", "info", "timer", "reminders", "focus", "note", "weather", "metrics",
-        "mixer", "lyrics", "mic", "bluetooth", "notifications", "clipboard",
+        "mixer", "devices", "lyrics", "mic", "bluetooth", "notifications", "clipboard",
     ];
     let mut out: Vec<String> = order.to_vec();
     for m in defaults {

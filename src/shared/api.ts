@@ -30,6 +30,7 @@ export const ev = {
   REMINDER_FIRED: "reminder:fired",
   VOLUME_OSD: "volume:osd",
   OSD_KEY: "osd:key",
+  BT_BATTERY: "bt:battery",
   METRICS: "metrics:sample",
   TIMER_TICK: "timer:tick",
   TIMER_DONE: "timer:done",
@@ -75,6 +76,15 @@ export const mixerList = () =>
   invoke<MixerApp[]>("mixer_list");
 export const mixerSet = (pid: number, volume: number) =>
   invoke("mixer_set", { pid, volume });
+export interface AudioDevice {
+  id: string;
+  name: string;
+  isDefault: boolean;
+}
+export const audioDevices = () =>
+  invoke<AudioDevice[]>("audio_devices");
+export const deviceSetDefault = (id: string) =>
+  invoke("device_set_default", { id });
 export const frontendLog = (message: string) =>
   invoke("frontend_log", { message }).catch(() => {});
 export const updateCheck = () =>

@@ -5,6 +5,7 @@ mod clipboard;
 mod commands;
 mod config;
 mod credentials;
+mod devices;
 mod events;
 mod focus;
 mod fullscreen;
@@ -162,6 +163,8 @@ pub fn run() {
             commands::copy_now_playing,
             commands::volume_get,
             commands::volume_set,
+            commands::audio_devices,
+            commands::device_set_default,
             commands::mixer_list,
             commands::mixer_set,
             commands::mic_state,
@@ -226,6 +229,7 @@ pub fn run() {
             clipboard::start(handle.clone());
             notify::start(handle.clone());
             bluetooth::start(handle.clone());
+            bluetooth::start_battery_watcher(handle.clone());
             fullscreen::start(handle.clone());
             reminders::init(&handle);
             reminders::start(handle.clone());

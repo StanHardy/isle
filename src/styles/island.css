@@ -1519,3 +1519,40 @@ button:focus-visible {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
+
+
+/* device switcher */
+.devices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.device-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--stroke);
+}
+
+.device-row[data-default="true"] {
+  border-color: var(--accent);
+}
+
+.device-name {
+  flex: 1;
+  font-size: 12px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bt-battery {
+  font-size: 11px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}

@@ -477,6 +477,18 @@ pub fn mixer_set(pid: u32, volume: u32) -> Result<(), String> {
     crate::mixer::set(pid, volume)
 }
 
+// ---- audio devices ----
+
+#[tauri::command]
+pub fn audio_devices() -> Result<Vec<crate::devices::AudioDevice>, String> {
+    crate::devices::audio_devices()
+}
+
+#[tauri::command]
+pub fn device_set_default(id: String) -> Result<(), String> {
+    crate::devices::set_default_device(&id)
+}
+
 // ---- microphone ----
 
 #[tauri::command]

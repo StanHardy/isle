@@ -24,6 +24,7 @@ import WeatherModule from "./modules/WeatherModule";
 import MetricsModule from "./modules/MetricsModule";
 import { BluetoothModule, ClipboardModule, NotificationsModule } from "./modules/PrivacyModules";
 import {
+  DevicesModule,
   FocusModule,
   InfoModule,
   LyricsModule,
@@ -515,6 +516,8 @@ export default function IslandRoot() {
         return <NoteModule key={id} />;
       case "mic":
         return <MicModule key={id} />;
+      case "devices":
+        return <DevicesModule key={id} />;
       case "mixer":
         return <MixerModule key={id} />;
       case "bluetooth":

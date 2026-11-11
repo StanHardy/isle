@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import * as api from "../../shared/api";
-import type { BtDevice, ClipEntry, NotifyItem } from "../../shared/types";
+import type { BtBattery, BtDevice, ClipEntry, NotifyItem } from "../../shared/types";
 import { useIsland } from "../IslandRoot";
 
 function relTime(tsMs: number): string {
@@ -186,6 +186,7 @@ export function NotificationsModule() {
 
 export function BluetoothModule() {
   const [devices, setDevices] = useState<BtDevice[]>([]);
+  const [batteries, setBatteries] = useState<Map<string, BtBattery>>(new Map());
 
   useEffect(() => {
     api.btDevices().then(setDevices).catch(() => {});
@@ -201,8 +202,12 @@ export function BluetoothModule() {
         });
       },
     );
+    const unBat = api.listen<BtBattery>(api.ev.BT_BATTERY, (e) => {
+      setBatteries((map) => new Map(map).set(e.payload.id, e.payload));
+    });
     return () => {
       un.then((f) => f()).catch(() => {});
+      unBat.then((f) => f()).catch(() => {});
     };
   }, []);
 
@@ -217,6 +222,9 @@ export function BluetoothModule() {
           <li key={d.id} className="bt-row" data-connected={d.connected}>
             <span className="bt-dot" aria-hidden="true" />
             <span className="bt-name">{d.name}</span>
+            {batteries.get(d.id) && (
+              <span className="bt-battery">{batteries.get(d.id)!.level}%</span>
+            )}
             <span className="bt-state muted">{d.connected ? "connected" : "disconnected"}</span>
           </li>
         ))}
